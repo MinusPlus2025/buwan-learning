@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#F7F1E8">
+  <meta name="description" content="不晚，陪你把想学的事变成今天能开始的一小步。">
+  <title>不晚｜想学的事，什么时候开始都不晚</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#chat-input">跳到对话输入</a>
+  <header class="topbar">
+    <a class="brand" href="#app" aria-label="不晚，回到会客厅">
+      <span class="brand-mark" aria-hidden="true">晚</span>
+      <span class="brand-copy"><span class="brand-cn">不晚</span><span class="slogan">想学的事，什么时候开始都不晚</span></span>
+    </a>
+    <div class="top-actions">
+      <label class="large-text-control"><input id="large-text-toggle" type="checkbox" aria-label="切换大字显示"><span class="large-text-button">大字</span></label>
+      <button id="open-companion" class="text-icon-button" type="button" aria-label="设置学伴">
+        <span>学伴</span><span id="header-companion-name" class="sr-only">学伴</span>
+      </button>
+      <button id="tts-toggle" class="text-icon-button" type="button" aria-pressed="false" title="开启语音播报">
+        <span aria-hidden="true">语音</span><span class="sr-only">开启语音播报</span>
+      </button>
+      <button id="clear-chat" class="text-icon-button" type="button" title="清空并新建会话" aria-label="清空并新建会话">清空</button>
+    </div>
+  </header>
+
+  <main id="app" class="app-shell">
+    <section class="hero" aria-labelledby="seed-title">
+      <p class="hero-kicker">从一个念头开始</p>
+      <h1 id="seed-title">有没有一件事，你一直想学，却总觉得“太晚了”？</h1>
+      <p class="hero-subtitle">不用一下子想清楚，也不用等到准备好。先聊聊你想学的事，我们一起找到今天能迈出的第一步。</p>
+      <div id="interest-seeds" class="seed-list" aria-label="选择一个想开始的兴趣"></div>
+      <div id="starter-workbench" class="starter-workbench" hidden>
+        <div class="starter-config">
+          <p class="starter-eyebrow">把“以后再说”变成今天的一小步</p>
+          <h2 id="starter-title">先给自己一个轻一点的开始</h2>
+          <div class="starter-field"><span>最让你犹豫的是</span><div id="starter-worries" class="starter-options" role="group" aria-label="选择顾虑"></div></div>
+          <div class="starter-field"><span>今天愿意留出</span><div id="starter-times" class="starter-options" role="group" aria-label="选择可用时间"></div></div>
+          <button id="starter-chat" class="starter-chat" type="button">带着这些想法，和学伴聊聊 <span aria-hidden="true">↗</span></button>
+        </div>
+        <div class="starter-action">
+          <div class="starter-action-head"><span class="starter-pill">今天 · 第一小步</span><span id="starter-session-state" role="status">由你决定何时开始</span><button id="starter-exit-focus" class="quiet-button" type="button" hidden>返回会客厅</button></div>
+          <label for="starter-task" class="starter-task-label">把任务改成你今天真正愿意做的事</label>
+          <textarea id="starter-task" rows="3" maxlength="200"></textarea>
+          <p id="starter-task-note" class="starter-task-note">这是预设起步建议，可以自由修改。</p>
+          <div class="starter-session">
+            <div id="starter-clock-ring" class="starter-clock-ring"><span id="starter-clock">10:00</span></div>
+            <div class="starter-session-actions"><button id="starter-start" class="primary-button" type="button">开始这一小步</button><button id="starter-complete" class="secondary-button" type="button" disabled>我完成了</button></div>
+          </div>
+          <div id="starter-achievement" class="starter-achievement" role="status" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <ol id="learning-steps" class="learning-steps" aria-label="学习起步四步">
+      <li class="active"><span>01</span>想学什么</li>
+      <li><span>02</span>为什么想学</li>
+      <li><span>03</span>定个小计划</li>
+      <li><span>04</span>迈出第一步</li>
+    </ol>
+
+    <div class="lounge-layout">
+      <aside class="companion-stage" aria-labelledby="stage-title">
+        <div class="stage-head">
+          <div>
+            <p class="eyebrow">YOUR LEARNING COMPANION</p>
+            <h2 id="stage-title"><span id="stage-companion-name">阿晚</span>，在这儿。</h2>
+          </div>
+          <button id="model-state" class="model-state" type="button" role="status" title="重新连接学伴">连接中</button>
+        </div>
+
+        <div class="portrait-frame" aria-label="数字人尚未连接">
+          <div class="stage-glow" aria-hidden="true"></div>
+          <div class="sound-orb" aria-hidden="true">
+            <span class="sound-ring sound-ring-one"></span>
+            <span class="sound-ring sound-ring-two"></span>
+            <span class="sound-core"><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="portrait-caption">
+            <span class="caption-status"><i aria-hidden="true"></i> 等待连接</span>
+            <strong>数字人尚未连接</strong>
+            <span>连接后，学伴会在这里与你见面</span>
+          </div>
+        </div>
+
+        <blockquote id="companion-motto">“不催你。我们只找今天能迈出的第一步。”</blockquote>
+        <div class="stage-meta">
+          <span id="companion-style-label">温柔陪伴</span>
+          <span class="stage-rule"></span>
+          <span id="conversation-id-short">新会话</span>
+        </div>
+
+        <div class="demo-section">
+          <div class="section-line">
+            <p class="eyebrow">从别人的「还没开始」看看</p>
+            <span>演示会真实生成手册</span>
+          </div>
+          <div id="demo-list" class="demo-list"></div>
+        </div>
+      </aside>
+
+      <section class="chat-lounge" aria-labelledby="chat-title">
+        <div class="chat-head">
+          <div>
+            <p class="eyebrow">02 · 一对一伙伴会客厅</p>
+            <h2 id="chat-title">先聊聊，为什么是这件事。</h2>
+          </div>
+          <button id="cancel-request" class="quiet-button" type="button" hidden>取消回应</button>
+        </div>
+
+        <div id="demo-banner" class="demo-banner" role="status" hidden>
+          <strong>演示对话</strong>
+          <span id="demo-banner-text"></span>
+          <button id="exit-demo" type="button">退出演示</button>
+        </div>
+
+        <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-relevant="additions text"></div>
+
+        <div class="composer-wrap">
+          <p id="privacy-note" class="privacy-note">发送后，内容会交给模型处理；生成手册时，关键词也会用于搜索。请勿发送隐私信息。</p>
+          <div class="composer">
+            <button id="voice-input" class="icon-button voice-button" type="button" title="语音输入" aria-label="语音输入">
+              <svg class="microphone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M6 10v2a6 6 0 0 0 12 0v-2M12 18v3M9 21h6"></path></svg>
+            </button>
+            <textarea id="chat-input" rows="2" maxlength="500" placeholder="说说你想学什么，或为什么现在想开始…" aria-describedby="privacy-note chat-status"></textarea>
+            <button id="send-message" class="send-button" type="button" aria-label="发送消息">发送</button>
+          </div>
+          <div class="composer-footer">
+            <p id="chat-status" class="chat-status" role="status">选择一颗兴趣种子，或者直接和学伴说说。</p>
+            <span id="input-count">0 / 500</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="unlock-panel" class="unlock-panel" aria-live="polite">
+      <div class="unlock-copy">
+        <span id="turn-count" class="turn-count">0 / 3</span>
+        <p><strong>聊满 3 轮，展开你的开始手册</strong><span>每次只聊一个问题，不急着一次想清楚。</span></p>
+      </div>
+      <button id="generate-guide" class="primary-button" type="button" disabled>展开开始手册 <span aria-hidden="true">→</span></button>
+    </div>
+
+    <section id="guide-section" class="guide-section" aria-labelledby="guide-heading" hidden>
+      <div class="guide-intro">
+        <div>
+          <p class="eyebrow">03 · YOUR STARTING MANUAL</p>
+          <h2 id="guide-heading">一份真正能开始的手册</h2>
+        </div>
+        <p id="guide-story" class="guide-story"></p>
+      </div>
+      <div id="guide-content"></div>
+    </section>
+  </main>
+
+  <dialog id="companion-dialog" class="companion-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description">
+    <form id="companion-form" method="dialog" novalidate>
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">MEET YOUR COMPANION</p>
+          <h2 id="dialog-title">先认识一下你的学伴</h2>
+          <p id="dialog-description">名字和相处方式随时能改，对话不会因此消失。</p>
+        </div>
+        <button id="close-dialog" class="icon-button" type="button" aria-label="关闭设置">×</button>
+      </div>
+
+      <fieldset>
+        <legend>TA 叫什么</legend>
+        <label class="field-label" for="companion-name">学伴名字 <span>1–6 个中文、字母或数字</span></label>
+        <input id="companion-name" name="name" type="text" maxlength="6" autocomplete="off" value="阿晚" aria-describedby="name-error">
+        <p id="name-error" class="field-error" role="alert"></p>
+        <div class="recommend-row" aria-label="推荐名字">
+          <span>推荐</span>
+          <div id="name-suggestions"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>TA 怎么称呼你</legend>
+        <label class="field-label" for="user-title">称呼 <span>可不填，最多 8 个中文、字母或数字</span></label>
+        <input id="user-title" name="userTitle" type="text" maxlength="8" autocomplete="off" placeholder="例如：小林">
+        <p id="title-error" class="field-error" role="alert"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>你喜欢怎样的陪伴</legend>
+        <div id="style-options" class="style-options"></div>
+      </fieldset>
+
+      <div class="voice-preview">
+        <div>
+          <strong>听听 TA 的声音</strong>
+          <span>使用浏览器内置语音，仅试听时播放</span>
+        </div>
+        <button id="preview-voice" class="secondary-button" type="button">试听一句</button>
+      </div>
+
+      <div class="dialog-actions companion-actions">
+        <button id="use-default-companion" class="secondary-button" type="reset">先用默认的</button>
+        <button id="save-companion" class="primary-button" type="submit">就这样认识吧</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="consent-dialog" class="consent-dialog" aria-labelledby="consent-title">
+    <form method="dialog">
+      <p class="eyebrow">发送前确认</p>
+      <h2 id="consent-title">让学伴读到这段话？</h2>
+      <p>你的对话会发送给 AI 模型；生成手册时，提取出的搜索词会发送到搜索服务。请不要输入姓名、电话、住址等隐私信息。</p>
+      <div class="dialog-actions split-actions">
+        <button id="decline-consent" class="secondary-button" type="button">先不发送</button>
+        <button id="accept-consent" class="primary-button" type="button">同意并发送</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
