@@ -303,7 +303,7 @@ html:has(#large-text-toggle:checked) h1 { font-size: 26px; }
   --shadow: 0 12px 34px rgba(72, 53, 35, .07);
 }
 body { background: #F7F1E8; }
-.topbar { min-height: 76px; max-width: 1180px; margin: 0 auto; padding: 12px 0; grid-template-columns: 1fr auto; background: transparent; backdrop-filter: none; }
+.topbar { position: static; min-height: 76px; max-width: 1180px; margin: 0 auto; padding: 12px 0; grid-template-columns: 1fr auto; background: transparent; backdrop-filter: none; }
 .brand { align-items: center; gap: 12px; }
 .brand-mark { width: 50px; height: 50px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 17px; background: linear-gradient(135deg, #E0603F, #E8A93B); color: white; font-size: 27px; font-weight: 900; box-shadow: 0 7px 18px rgba(224,96,63,.2); }
 .brand-copy { display: grid; gap: 0; }
@@ -330,6 +330,12 @@ body { background: #F7F1E8; }
 .lounge-layout { grid-template-columns: 320px minmax(0,1fr); min-height: 0; gap: 20px; }
 .companion-stage, .chat-lounge { padding: 22px; border: 1px solid rgba(38,34,31,.06); border-radius: 24px; background: var(--paper); box-shadow: var(--shadow); }
 .stage-head, .chat-head { gap: 12px; }
+.stage-head { flex-wrap: wrap; }
+.stage-head > div { flex: 1 1 160px; min-width: 0; }
+.stage-head h2 { overflow-wrap: anywhere; }
+.brand-copy { min-width: 0; gap: 5px; }
+.brand-cn { line-height: 1.2; }
+.brand-mark, .avatar { padding: 0; text-align: center; }
 .stage-head h2, .chat-head h2 { font-size: 1.2rem; }
 .stage-head .eyebrow, .chat-head .eyebrow { font-size: .62rem; }
 .model-state { padding: 6px 9px; font-size: .68rem; }
@@ -372,7 +378,7 @@ body { background: #F7F1E8; }
 .unlock-panel { width: fit-content; max-width: 100%; margin: 20px auto 34px; padding: 15px 18px; border: 1px solid var(--line); border-radius: 20px; background: var(--paper); box-shadow: var(--shadow); }
 .unlock-copy strong { font-size: .85rem; }
 .unlock-copy p span { font-size: .7rem; }
-.turn-count { background: #FBE9E0; color: var(--coral-deep); }
+.unlock-copy .turn-count { display: grid; place-items: center; padding: 0; line-height: 1; text-align: center; white-space: nowrap; background: #FBE9E0; color: var(--coral-deep); }
 .primary-button { background: linear-gradient(120deg, #E0603F, #E8A93B); }
 .primary-button:hover { background: var(--coral-deep); }
 .guide-section { padding: 32px; border: 1px solid var(--line); border-radius: 26px; background: var(--paper); box-shadow: var(--shadow); }
