@@ -54,7 +54,7 @@ const server=http.createServer(async(req,res)=>{
       return json(res,200,{result:validateResult(input?.result)});
     }catch(error){return json(res,error.status||500,{error:error.message||'请求失败'});}
   }
-  const routes={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8']};
+  const routes={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/b1-logo.png':['b1-logo.png','image/png']};
   if(req.method==='GET'&&routes[path]){
     try{const [file,type]=routes[path];res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-store'});return res.end(await readFile(root+file));}
     catch{return json(res,500,{error:'页面资源读取失败'});}

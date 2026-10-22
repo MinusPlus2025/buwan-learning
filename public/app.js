@@ -8,7 +8,13 @@ const publicConfig = {
 
 const STORAGE_KEY = 'buwan_companion';
 const DEFAULT_COMPANION = { v: 1, name: '学伴', userTitle: '', call_me: '', avatar_id: 'paper', voice_id: '', style: 'gentle' };
-const INTERESTS = ['钢琴', '游泳', '绘画', '摄影', '书法', '编程', '烘焙', '英语', '舞蹈', '园艺'];
+const INTERESTS = ['钢琴', '绘画', '游泳', '摄影', '书法', '编程', '烘焙', '英语', '舞蹈', '园艺'];
+const INTEREST_SCENES = {
+  '钢琴': { note: '弹出一直喜欢的那段旋律', color: '#F1E5D5', art: '<circle cx="166" cy="44" r="34" fill="#E6CEAC"/><path d="m53 39 131 9 23 58-148-7z" fill="#596056"/><path d="m62 71 126 8 11 20-133-7z" fill="#FFFDF5"/><path d="m78 73 4 11m12-10 4 11m12-10 4 11m12-10 4 11m12-10 4 11m12-10 4 11" stroke="#596056" stroke-width="5"/><path d="m67 100-4 23m129-17 8 23" stroke="#596056" stroke-width="5"/><path d="M102 28v27m0-26 25-5v25" stroke="#B37852" stroke-width="2"/><ellipse cx="96" cy="56" rx="7" ry="4" fill="#B37852"/><ellipse cx="121" cy="50" rx="7" ry="4" fill="#B37852"/>' },
+  '绘画': { note: '把眼里的日常，画下来', color: '#E6EADC', art: '<circle cx="74" cy="55" r="40" fill="#D6DFC6"/><path d="m111 25-27 103m59-103 29 103m-40-109v108" stroke="#A67D59" stroke-width="5" stroke-linecap="round"/><path d="m94 23 58-5 10 75-59 5z" fill="#FFFCF2" stroke="#C5AB85" stroke-width="3"/><circle cx="126" cy="45" r="10" fill="#E7B884"/><path d="m108 83 11-25 15 11 11-19 9 30" fill="#91A381"/><path d="M184 103c-19-15-21-5-17 4 7 13 39 10 39-1 0-9-11-10-22-3z" fill="#C69B77"/><circle cx="181" cy="107" r="3" fill="#D8664C"/><circle cx="193" cy="106" r="3" fill="#E7C982"/>' },
+  '游泳': { note: '慢慢靠近水，也是一种勇敢', color: '#E0ECEC', art: '<path d="M34 86c18-13 32 12 51 0s32 12 51 0 32 12 51 0 26 7 31 2M28 108c18-13 32 12 51 0s32 12 51 0 32 12 51 0 26 7 31 2" stroke="#9ABFC1" stroke-width="4" stroke-linecap="round"/><path d="M77 85V32a12 12 0 0 1 24 0v54m13 0V32a12 12 0 0 1 24 0v54M100 47h15m-15 20h15" stroke="#708E8C" stroke-width="5"/><ellipse cx="172" cy="66" rx="23" ry="10" fill="#E7A582"/><ellipse cx="172" cy="64" rx="11" ry="5" fill="#E0ECEC"/><circle cx="194" cy="29" r="12" fill="#EEE0B8"/>' },
+  '摄影': { note: '重新发现，身边的好风景', color: '#EDE4DE', art: '<circle cx="168" cy="51" r="41" fill="#DFCFC3"/><path d="m67 54 23-2 10-16 39 2 7 16 28 3-4 61-107-5z" fill="#677063"/><path d="m70 61 100 5-2 18-99-5z" fill="#7E8979"/><circle cx="119" cy="86" r="27" fill="#DCD8C7"/><circle cx="119" cy="86" r="20" fill="#454F49"/><circle cx="119" cy="86" r="11" fill="#87998E"/><circle cx="114" cy="81" r="4" fill="#D5DDD0"/><path d="M156 64h9" stroke="#F4E8D3" stroke-width="4"/><path d="m42 33 7-8m-9 26-12-2m26-5-1-12" stroke="#BB8766" stroke-width="2" stroke-linecap="round"/>' }
+};
 const NAME_SUGGESTIONS = ['阿晚', '小步', '知知', '慢慢', '豆豆', '老周'];
 const STYLES = {
   gentle: { label: '温柔陪伴', detail: '慢一点也没关系', rate: 0.86, pitch: 1.08, prompt: '温柔、耐心，不催促，先接住感受' },
@@ -55,7 +61,8 @@ const state = {
   speaking: false,
   recognition: null,
   guide: null,
-  searchMeta: null
+  searchMeta: null,
+  activePlaceholder: null
 };
 
 function makeUuid() {
@@ -84,6 +91,21 @@ function el(tag, className, content) {
 function setStatus(message, isError = false) {
   $('chat-status').textContent = message;
   $('chat-status').classList.toggle('error', isError);
+}
+
+function setCompanionPresence(status) {
+  const orb = document.querySelector('.sound-orb');
+  if (!orb) return;
+  const copy = {
+    idle: ['在这里', '学伴正在这里等你', '先从一件想学的事开始'],
+    listening: ['认真听', '我在认真听', '不用一次说清楚，慢慢来'],
+    responding: ['正在回应', '正在为你整理思路', '把愿望变成今天的一小步'],
+    complete: ['完成第一步', '今天的开始已留下', '你已经为兴趣迈出一步']
+  }[status] || ['在这里', '学伴正在这里等你', '先从一件想学的事开始'];
+  orb.dataset.state = status;
+  $('companion-presence').textContent = copy[0];
+  $('companion-state-title').textContent = copy[1];
+  $('companion-state-detail').textContent = copy[2];
 }
 
 function safeUrl(value) {
@@ -178,7 +200,19 @@ function renderSeeds() {
     };
     path.setAttribute('d', paths[interest] || paths['园艺']);
     icon.append(path);
-    button.append(icon, el('span', '', interest));
+    const scene = INTEREST_SCENES[interest];
+    if (scene) {
+      const illustration = el('span', 'interest-art');
+      // These SVGs are fixed, authored illustrations; no user or model content is inserted.
+      illustration.innerHTML = `<svg viewBox="0 0 250 140" fill="none" aria-hidden="true"><rect width="250" height="140" fill="${scene.color}"/>${scene.art}</svg>`;
+      const copy = el('span', 'interest-copy');
+      copy.append(el('strong', '', interest), el('small', '', scene.note));
+      button.append(illustration, copy, el('span', 'interest-arrow', '↗'));
+      button.setAttribute('aria-label', `选择${interest}：${scene.note}`);
+    } else {
+      button.classList.add('compact');
+      button.append(icon, el('span', '', interest));
+    }
     button.type = 'button';
     button.setAttribute('aria-pressed', String(state.interests.has(interest)));
     button.addEventListener('click', () => {
@@ -194,7 +228,7 @@ function renderSeeds() {
   });
 }
 
-const starter = { interest: '', worry: '怕坚持不下来', minutes: 10, remaining: 600, deadline: 0, timer: null, running: false, started: false };
+const starter = { interest: '', worry: '怕坚持不下来', minutes: 10, remaining: 600, deadline: 0, timer: null, running: false, started: false, fromGuide: false };
 const STARTER_TASKS = {
   '钢琴': '听一段你喜欢的钢琴旋律，选出最想学会的十秒钟，写下曲名。',
   '游泳': '找到一家正规泳馆，查看教练资质和成人初学体验课，记下一个想问的问题。今天不独自下水。',
@@ -247,9 +281,9 @@ function updateStarterClock() {
   $('starter-clock-ring').style.setProperty('--progress', `${progress}%`);
 }
 
-function openStarter(interest) {
+function openStarter(interest, options = {}) {
   clearInterval(starter.timer);
-  Object.assign(starter, { interest, remaining: starter.minutes * 60, running: false, started: false });
+  Object.assign(starter, { interest, remaining: starter.minutes * 60, running: false, started: false, fromGuide: options.fromGuide === true });
   $('starter-workbench').hidden = false;
   $('starter-title').textContent = `想学${interest}，先从这一小步试试`;
   $('starter-task').value = STARTER_TASKS[interest];
@@ -320,6 +354,12 @@ function setupStarter() {
     $('starter-complete').disabled = true;
     $('starter-achievement').textContent = `第一步，已完成。你今天为${starter.interest}留下了一个真实的开始。`;
     $('starter-achievement').hidden = false;
+    if (starter.fromGuide) {
+      const action = document.querySelector('.first-lesson-action .primary-button');
+      if (action) { action.textContent = '今天已完成'; action.disabled = true; }
+      $('learning-steps').lastElementChild?.classList.add('completed');
+    }
+    setCompanionPresence('complete');
     setFocusMode(false);
     $('starter-session-state').textContent = '今天的开始，已由你亲手完成';
   });
@@ -366,10 +406,21 @@ function appendMessage(role, content, options = {}) {
 
 function addConversationMessage(role, content, options = {}) {
   state.messages.push({ role, content });
-  if (role === 'user') state.userTurns += 1;
   const rendered = appendMessage(role, content, options);
   updateUnlock();
   return rendered;
+}
+
+function addRetryButton(message, content, options = {}) {
+  if (message.querySelector('.retry-button')) return;
+  const retry = el('button', 'retry-button', '重试这条回应');
+  retry.type = 'button';
+  retry.addEventListener('click', () => {
+    if (state.busy || state.generating) return;
+    message.remove();
+    void sendChatMessage(content, { ...options, skipUserMessage: true });
+  });
+  message.querySelector('.message-body')?.append(retry);
 }
 
 function updateLearningSteps() {
@@ -410,6 +461,9 @@ function abortActive(message = '') {
   state.demoToken += 1;
   state.controller?.abort();
   state.controller = null;
+  setCompanionPresence('idle');
+  state.activePlaceholder?.remove();
+  state.activePlaceholder = null;
   state.busy = false;
   state.generating = false;
   state.demoRunning = false;
@@ -428,6 +482,9 @@ function newConversation(options = {}) {
   state.messages = [];
   state.userTurns = 0;
   state.conversationId = makeUuid();
+  const guideAction = document.querySelector('.first-lesson-action .primary-button');
+  if (guideAction) { guideAction.disabled = false; guideAction.textContent = '带入今天的任务'; }
+  $('learning-steps').lastElementChild?.classList.remove('completed');
   state.guide = null;
   state.searchMeta = null;
   state.demo = options.demo || null;
@@ -507,11 +564,16 @@ async function sendChatMessage(value, options = {}) {
   const serial = ++state.serial;
   const controller = options.controller || new AbortController();
   state.controller = controller;
-  addConversationMessage('user', content, { demo: options.demo });
+  if (!options.skipUserMessage) {
+    appendMessage('user', content, { demo: options.demo });
+    state.messages.push({ role: 'user', content });
+  }
   $('chat-input').value = '';
   $('input-count').textContent = '0 / 500';
   setBusy(true, `${state.companion.name}正在想一个问题…`);
+  setCompanionPresence('listening');
   const placeholder = appendMessage('assistant', '正在回应', { loading: true, demo: options.demo });
+  state.activePlaceholder = placeholder.message;
   let streamed = '';
   try {
     const history = boundedMessages();
@@ -527,15 +589,22 @@ async function sendChatMessage(value, options = {}) {
     });
     if (serial !== state.serial) return;
     const reply = normalizeChatReply(raw);
+    setCompanionPresence('responding');
     placeholder.copy.textContent = reply;
     placeholder.message.classList.remove('loading');
+    state.activePlaceholder = null;
     state.messages.push({ role: 'assistant', content: reply });
+    state.userTurns += 1;
+    updateUnlock();
+    setCompanionPresence('idle');
     setStatus(state.userTurns >= 3 ? '已经聊了三轮，可以展开开始手册。' : `再聊 ${3 - state.userTurns} 轮，就能展开开始手册。`);
     speak(reply);
     return true;
   } catch (error) {
     if (serial !== state.serial) return false;
     placeholder.message.classList.remove('loading');
+    state.activePlaceholder = null;
+    setCompanionPresence('idle');
     if (error.name === 'AbortError') {
       if (streamed) {
         const partial = normalizeChatReply(streamed);
@@ -549,11 +618,11 @@ async function sendChatMessage(value, options = {}) {
       if (streamed) {
         const partial = normalizeChatReply(streamed);
         placeholder.copy.textContent = `${partial}（网络中断）`;
-        state.messages.push({ role: 'assistant', content: partial });
       } else {
-        placeholder.copy.textContent = '网络暂时没有回应。你刚才说的话已经保留，可以重试。';
+        placeholder.copy.textContent = '网络暂时没有回应。你刚才说的话已经保留。';
       }
-      setStatus(`网络错误：${error.message}。对话内容已保留。`, true);
+      addRetryButton(placeholder.message, content, { demo: options.demo });
+      setStatus(`网络错误：${error.message}。可以点击消息下方重试。`, true);
     }
     return false;
   } finally {
@@ -699,16 +768,16 @@ async function generateGuide() {
     generated = enforceSwimmingSafety(generated, extracted.interest);
     if (serial !== state.serial) return;
     setStatus('正在检查手册结构与来源链接…');
-    let finalResult = generated;
+    let finalResult;
     try {
       const validated = await postJson('/api/validate-result', { result: generated, results: searchData.results }, controller.signal);
       finalResult = validated.result || validated;
     } catch (error) {
       if (error.name === 'AbortError') throw error;
-      searchData.note = [searchData.note, `结果校验服务失败：${error.message}`].filter(Boolean).join('；');
+      throw new Error(`来源校验未完成：${error.message}`);
     }
     if (serial !== state.serial) return;
-    state.guide = enforceSwimmingSafety(finalResult, extracted.interest);
+    state.guide = { ...enforceSwimmingSafety(finalResult, extracted.interest), interest: text(extracted.interest || [...state.interests][0]) };
     state.searchMeta = searchData;
     renderGuide(state.guide, searchData);
     setStatus('开始手册已展开。它不是期限，只是一条可以调整的路。');
@@ -796,7 +865,20 @@ function renderGuide(result, searchData) {
   root.append(manual);
 
   const first = el('div', 'first-lesson');
-  first.append(el('span', '', '今天的第一课'), el('p', '', text(result.first_lesson) || '用十分钟，把第一步放进今天。'));
+  const firstCopy = el('div', 'first-lesson-copy');
+  firstCopy.append(el('span', '', '今天的第一课'), el('p', '', text(result.first_lesson) || '用十分钟，把第一步放进今天。'));
+  const firstAction = el('div', 'first-lesson-action');
+  const startToday = el('button', 'primary-button', '带入今天的任务');
+  startToday.type = 'button';
+  startToday.addEventListener('click', () => {
+    const interest = text(result.interest || [...state.interests][0] || '兴趣');
+    openStarter(interest, { fromGuide: true });
+    $('starter-task').value = text(result.first_lesson) || $('starter-task').value;
+    $('starter-task-note').textContent = '这一步来自你的开始手册，可以继续改成更适合今天的版本。';
+    $('starter-workbench').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  firstAction.append(startToday);
+  first.append(firstCopy, firstAction);
   root.append(first);
   if (result.share_text) root.append(el('div', 'share-copy', text(result.share_text)));
   section.hidden = false;
@@ -1057,7 +1139,82 @@ function requestSend() {
   void sendChatMessage(value);
 }
 
+function setupInterestDesk() {
+  const desk = document.querySelector('.desk-experience');
+  if (!desk) return;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let start = null;
+  const tilt = (x, y) => {
+    if (reduced.matches) return;
+    desk.style.setProperty('--desk-rx', `${y}deg`);
+    desk.style.setProperty('--desk-ry', `${x}deg`);
+  };
+  desk.addEventListener('pointerdown', event => {
+    if (event.target.closest('button') || event.pointerType === 'touch') return;
+    start = { x: event.clientX, y: event.clientY };
+    desk.setPointerCapture(event.pointerId);
+    desk.classList.add('dragging');
+  });
+  desk.addEventListener('pointermove', event => {
+    if (!start) return;
+    tilt(Math.max(-16, Math.min(16, (event.clientX - start.x) / 10)), Math.max(-10, Math.min(10, (start.y - event.clientY) / 16)));
+  });
+  const release = () => { start = null; desk.classList.remove('dragging'); tilt(0, 0); };
+  desk.addEventListener('pointerup', release);
+  desk.addEventListener('pointercancel', release);
+  desk.addEventListener('keydown', event => {
+    if (event.target !== desk) return;
+    if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      event.preventDefault();
+      tilt(event.key === 'ArrowLeft' ? -12 : 12, 0);
+    }
+    if (event.key === 'Escape') release();
+  });
+  let audio;
+  const sound = async button => {
+    const Audio = window.AudioContext || window.webkitAudioContext;
+    if (!Audio) { desk.querySelector('.desk-hint').textContent = '当前浏览器暂不支持琴键试听'; return; }
+    try {
+      audio ||= new Audio();
+      await audio.resume();
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      oscillator.type = 'triangle';
+      oscillator.frequency.value = Number(button.dataset.note);
+      oscillator.connect(gain);
+      gain.connect(audio.destination);
+      gain.gain.setValueAtTime(0, audio.currentTime);
+      gain.gain.linearRampToValueAtTime(.14, audio.currentTime + .015);
+      gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + 1.1);
+      oscillator.start();
+      oscillator.stop(audio.currentTime + 1.2);
+      button.classList.add('playing');
+      setTimeout(() => button.classList.remove('playing'), 200);
+    } catch {
+      desk.querySelector('.desk-hint').textContent = '声音未能播放，可以先选择一个兴趣';
+    }
+  };
+  desk.querySelectorAll('[data-note]').forEach(button => button.addEventListener('click', () => void sound(button)));
+  desk.querySelectorAll('[data-desk-interest]').forEach(button => button.addEventListener('click', () => {
+    if (state.busy || state.generating || state.demoRunning) return;
+    const interest = button.dataset.deskInterest;
+    state.interests = new Set([interest]);
+    renderSeeds();
+    openStarter(interest);
+  }));
+  const links = [...document.querySelectorAll('.rail-nav .nav-link')];
+  const updateNav = () => links.forEach(link => {
+    const active = link.hash === (location.hash || '#app');
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  });
+  window.addEventListener('hashchange', updateNav);
+  updateNav();
+}
+
 function setupEvents() {
+  setupInterestDesk();
   $('use-default-companion').addEventListener('click', event => {
     event.preventDefault();
     state.companion = { ...DEFAULT_COMPANION };
@@ -1067,6 +1224,7 @@ function setupEvents() {
   });
   $('chat-input').addEventListener('input', event => { $('input-count').textContent = `${event.target.value.length} / 500`; });
   $('chat-input').addEventListener('keydown', event => {
+    if (event.isComposing || event.keyCode === 229) return;
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       requestSend();
@@ -1123,6 +1281,7 @@ function init() {
   const stored = readCompanion();
   state.companion = stored.value;
   updateCompanionUi();
+  setCompanionPresence('idle');
   setupEvents();
   newConversation();
   setupCompanionDialog(stored.isFirst);
