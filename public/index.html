@@ -41,7 +41,7 @@
     <section class="hero" aria-labelledby="seed-title">
       <div class="hero-intro">
         <p class="hero-kicker"><span></span> A LITTLE TIME, JUST FOR YOU</p>
-        <h1 id="seed-title">想学，<br>就从<em>今天</em>开始。</h1>
+        <h1 id="seed-title"><span>想学，</span><span>就从<em>今天</em>开始。</span></h1>
         <p class="hero-subtitle">那件一直想试试的事，还在等你。<br>不用准备好一切，先给喜欢的事十分钟。</p>
         <div class="hero-actions"><a class="primary-button begin-button" href="#interest-section">找到我的第一步 <span aria-hidden="true">↗</span></a><a class="hero-chat-link" href="#conversation">还没想好？和学伴聊聊 <span aria-hidden="true">→</span></a></div>
       </div>
@@ -51,13 +51,17 @@
           <div class="desk-world">
             <div class="desk-surface"></div>
             <div class="desk-piano"><div class="piano-lid"><span>BUWAN / FIRST NOTES</span></div><div class="piano-keys" aria-label="点击琴键试听"><button type="button" data-note="261.63" aria-label="试听Do"></button><button type="button" data-note="293.66" aria-label="试听Re"></button><button type="button" data-note="329.63" aria-label="试听Mi"></button><button type="button" data-note="349.23" aria-label="试听Fa"></button><button type="button" data-note="392" aria-label="试听Sol"></button><button type="button" data-note="440" aria-label="试听La"></button><button type="button" data-note="493.88" aria-label="试听Si"></button></div><span class="piano-edge"></span></div>
-            <button class="desk-sketch" type="button" data-desk-interest="绘画" aria-label="从绘画开始"><span class="sketch-binding"></span><span class="sketch-sun"></span><span class="sketch-hill"></span><small>第一幅，不必完美。</small></button>
+            <button class="desk-sketch" type="button" data-desk-interest="绘画" aria-pressed="false" aria-label="从绘画开始"><span class="sketch-binding"></span><span class="sketch-sun"></span><span class="sketch-hill"></span><small>第一幅，不必完美。</small></button>
             <div class="desk-pencil" aria-hidden="true"></div>
-            <button class="desk-plant" type="button" data-desk-interest="园艺" aria-label="从园艺开始"><span class="plant-leaf leaf-one"></span><span class="plant-leaf leaf-two"></span><span class="plant-leaf leaf-three"></span><span class="plant-stem"></span><span class="plant-pot"></span></button>
+            <button class="desk-plant" type="button" data-desk-interest="园艺" aria-pressed="false" aria-label="从园艺开始"><span class="plant-leaf leaf-one"></span><span class="plant-leaf leaf-two"></span><span class="plant-leaf leaf-three"></span><span class="plant-stem"></span><span class="plant-pot"></span></button>
             <span class="desk-sticker">JUST<br>BEGIN.</span>
           </div>
-          <span class="desk-hint"><i></i>拖动探索 · 轻点琴键</span>
+        <div class="desk-selection" role="status" aria-live="polite">
+          <span class="desk-selection-mark" aria-hidden="true"></span>
+          <div><strong id="desk-selection-title">今天先碰一碰兴趣</strong><span id="desk-selection-detail">点击画本、植物或琴键，找到你的第一步</span></div>
         </div>
+        <span class="desk-hint"><i></i>拖动探索 · 轻点琴键</span>
+      </div>
         <svg class="room-fallback" viewBox="0 0 480 330" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M52 275V120a143 143 0 0 1 286 0v155" fill="#E8EBDE"/>
           <path d="M206 55v198M94 150h224" stroke="#F7F6F2" stroke-width="9"/>

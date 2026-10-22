@@ -7,6 +7,7 @@ const publicConfig = {
 };
 
 const STORAGE_KEY = 'buwan_companion';
+const STARTER_PROGRESS_KEY = 'buwan_starter_progress';
 const DEFAULT_COMPANION = { v: 1, name: '学伴', userTitle: '', call_me: '', avatar_id: 'paper', voice_id: '', style: 'gentle' };
 const INTERESTS = ['钢琴', '绘画', '游泳', '摄影', '书法', '编程', '烘焙', '英语', '舞蹈', '园艺'];
 const INTEREST_SCENES = {
@@ -228,7 +229,39 @@ function renderSeeds() {
   });
 }
 
-const starter = { interest: '', worry: '怕坚持不下来', minutes: 10, remaining: 600, deadline: 0, timer: null, running: false, started: false, fromGuide: false };
+const starter = { interest: '', worry: '怕坚持不下来', minutes: 10, remaining: 600, deadline: 0, timer: null, running: false, started: false, completed: false, fromGuide: false };
+
+function todayKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function readStarterProgress(interest) {
+  try {
+    const data = JSON.parse(localStorage.getItem(STARTER_PROGRESS_KEY) || '{}');
+    const item = data[interest];
+    return item && item.day === todayKey() ? item : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStarterProgress() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STARTER_PROGRESS_KEY) || '{}');
+    data[starter.interest] = {
+      day: todayKey(),
+      task: $('starter-task').value.trim(),
+      worry: starter.worry,
+      minutes: starter.minutes,
+      completed: starter.completed,
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(STARTER_PROGRESS_KEY, JSON.stringify(data));
+  } catch {
+    // The in-memory state remains usable when storage is unavailable.
+  }
+}
 const STARTER_TASKS = {
   '钢琴': '听一段你喜欢的钢琴旋律，选出最想学会的十秒钟，写下曲名。',
   '游泳': '找到一家正规泳馆，查看教练资质和成人初学体验课，记下一个想问的问题。今天不独自下水。',
@@ -254,6 +287,7 @@ function renderStarterOptions() {
       button.addEventListener('click', () => {
         starter[key] = value;
         if (key === 'minutes') starter.remaining = value * 60;
+        writeStarterProgress();
         renderStarterOptions();
         updateStarterClock();
         updateStarterNote();
@@ -283,16 +317,20 @@ function updateStarterClock() {
 
 function openStarter(interest, options = {}) {
   clearInterval(starter.timer);
-  Object.assign(starter, { interest, remaining: starter.minutes * 60, running: false, started: false, fromGuide: options.fromGuide === true });
+  const saved = readStarterProgress(interest);
+  const minutes = Number.isFinite(saved?.minutes) ? saved.minutes : starter.minutes;
+  const worry = saved?.worry || starter.worry;
+  Object.assign(starter, { interest, minutes, worry, remaining: minutes * 60, running: false, started: false, completed: saved?.completed === true, fromGuide: options.fromGuide === true });
   $('starter-workbench').hidden = false;
   $('starter-title').textContent = `想学${interest}，先从这一小步试试`;
-  $('starter-task').value = STARTER_TASKS[interest];
-  $('starter-task').disabled = false;
-  $('starter-start').disabled = false;
-  $('starter-start').textContent = '开始这一小步';
+  $('starter-task').value = saved?.task || STARTER_TASKS[interest];
+  $('starter-task').disabled = starter.completed;
+  $('starter-start').disabled = starter.completed;
+  $('starter-start').textContent = starter.completed ? '今天已完成' : '开始这一小步';
   $('starter-complete').disabled = true;
-  $('starter-achievement').hidden = true;
-  $('starter-session-state').textContent = '由你决定何时开始';
+  $('starter-achievement').textContent = starter.completed ? `今天已经为${interest}留下了一个真实的开始。` : '';
+  $('starter-achievement').hidden = !starter.completed;
+  $('starter-session-state').textContent = starter.completed ? '今天已完成，明天再来继续' : '由你决定何时开始';
   renderStarterOptions();
   updateStarterNote();
   updateStarterClock();
@@ -310,7 +348,7 @@ function setFocusMode(active) {
 
 function resetStarter() {
   clearInterval(starter.timer);
-  Object.assign(starter, { remaining: starter.minutes * 60, running: false, started: false, deadline: 0 });
+  Object.assign(starter, { remaining: starter.minutes * 60, running: false, started: false, completed: false, deadline: 0 });
   setFocusMode(false);
 }
 
@@ -322,6 +360,7 @@ function setupStarter() {
       starter.remaining = Math.max(0, (starter.deadline - Date.now()) / 1000);
       clearInterval(starter.timer);
       starter.running = false;
+      writeStarterProgress();
       $('starter-start').textContent = '继续这一小步';
       $('starter-session-state').textContent = '已暂停，按你的节奏来';
     } else {
@@ -330,6 +369,7 @@ function setupStarter() {
       starter.running = true;
       starter.deadline = Date.now() + starter.remaining * 1000;
       $('starter-task').disabled = true;
+      writeStarterProgress();
       $('starter-start').textContent = '暂停一下';
       $('starter-complete').disabled = false;
       $('starter-session-state').textContent = '正在进行，只专注眼前这一件事';
@@ -350,9 +390,11 @@ function setupStarter() {
   $('starter-complete').addEventListener('click', () => {
     clearInterval(starter.timer);
     starter.running = false;
+    starter.completed = true;
     $('starter-start').disabled = true;
     $('starter-complete').disabled = true;
     $('starter-achievement').textContent = `第一步，已完成。你今天为${starter.interest}留下了一个真实的开始。`;
+    writeStarterProgress();
     $('starter-achievement').hidden = false;
     if (starter.fromGuide) {
       const action = document.querySelector('.first-lesson-action .primary-button');
@@ -363,6 +405,7 @@ function setupStarter() {
     setFocusMode(false);
     $('starter-session-state').textContent = '今天的开始，已由你亲手完成';
   });
+  $('starter-task').addEventListener('input', writeStarterProgress);
   $('starter-chat').addEventListener('click', () => {
     $('chat-input').value = `我想学${starter.interest}，但${starter.worry}。今天能留出${starter.minutes}分钟。我的第一步想做：${$('starter-task').value.trim()}`.slice(0, 500);
     $('input-count').textContent = `${$('chat-input').value.length} / 500`;
@@ -1171,7 +1214,23 @@ function setupInterestDesk() {
     if (event.key === 'Escape') release();
   });
   let audio;
+  const setDeskSelection = (title, detail, active = false) => {
+    const titleNode = desk.querySelector('#desk-selection-title');
+    const detailNode = desk.querySelector('#desk-selection-detail');
+    const selection = desk.querySelector('.desk-selection');
+    if (titleNode) titleNode.textContent = title;
+    if (detailNode) detailNode.textContent = detail;
+    selection?.classList.toggle('active', active);
+  };
+  const selectDeskObject = button => {
+    desk.querySelectorAll('[data-desk-interest]').forEach(item => {
+      const selected = item === button;
+      item.classList.toggle('selected', selected);
+      item.setAttribute('aria-pressed', String(selected));
+    });
+  };
   const sound = async button => {
+    setDeskSelection('听见第一拍', '这一声只是试探，不需要先准备好', true);
     const Audio = window.AudioContext || window.webkitAudioContext;
     if (!Audio) { desk.querySelector('.desk-hint').textContent = '当前浏览器暂不支持琴键试听'; return; }
     try {
@@ -1198,6 +1257,12 @@ function setupInterestDesk() {
   desk.querySelectorAll('[data-desk-interest]').forEach(button => button.addEventListener('click', () => {
     if (state.busy || state.generating || state.demoRunning) return;
     const interest = button.dataset.deskInterest;
+    const details = {
+      绘画: ['先留下第一张', '不用画得像，先把眼前的东西画下来'],
+      园艺: ['先观察一株植物', '摸一摸土壤，记录它今天的状态']
+    }[interest] || [`从${interest}开始`, '先做一件十分钟内能完成的小事'];
+    selectDeskObject(button);
+    setDeskSelection(details[0], details[1], true);
     state.interests = new Set([interest]);
     renderSeeds();
     openStarter(interest);
