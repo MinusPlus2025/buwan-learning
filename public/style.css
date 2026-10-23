@@ -3111,23 +3111,39 @@ html { scroll-padding-top: 90px; }
 .service-details { color: var(--muted); font-size: 11px; margin: 12px 0; }
 .service-details summary { cursor: pointer; }
 /* Keep companion controls and captions in their own flow. */
-.companion-stage .stage-head { display: grid; gap: 20px; }
-.companion-stage .stage-head > div { min-width: 0; }
-.companion-stage .stage-head h2 { line-height: 1.5; overflow-wrap: anywhere; }
-.companion-stage .model-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.companion-stage .model-state { min-height: 40px; font-size: 13px; padding: 8px 12px; }
-.model-picker { display: grid; flex: 1 1 180px; min-width: 0; gap: 6px; }
+.companion-stage .stage-head { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; gap: 24px; }
+.companion-stage .stage-head > div { min-width: 0; width: 100%; }
+.companion-stage .stage-head h2 { margin-top: 8px; font-size: 26px; line-height: 1.4; overflow-wrap: anywhere; }
+.companion-stage .stage-head .eyebrow { font-size: 10px; line-height: 1.6; letter-spacing: .12em; }
+.companion-stage .model-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; padding-top: 20px; border-top: 1px solid var(--line); }
+.companion-stage .model-state { grid-column: 2; grid-row: 1; align-self: end; min-height: 44px; font-size: 12px; padding: 8px 12px; }
+.model-picker { display: grid; grid-column: 1; grid-row: 1; min-width: 0; gap: 8px; }
 .model-picker label { color: var(--muted); font-size: 12px; }
 #model-select { width: 100%; min-width: 0; min-height: 44px; padding: 10px 32px 10px 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; font-size: 14px; color: var(--ink); background-color: var(--surface); text-overflow: ellipsis; transition: border-color .2s, box-shadow .2s; }
 #model-select:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
-.companion-stage .portrait-frame { width: 100%; height: auto; min-height: 246px; margin: 28px auto 24px; padding: 20px 0 0; gap: 24px; }
-.companion-stage .stage-glow { width: 150px; height: 150px; inset: 0 auto auto 50%; transform: translateX(-50%); }
+.companion-stage .portrait-frame { width: 100%; height: auto; min-height: 0; margin: 32px auto; padding: 24px 0 0; gap: 36px; justify-content: flex-start; }
+.companion-stage .stage-glow { width: 144px; height: 144px; inset: 0 auto auto 50%; transform: translateX(-50%); }
 .companion-stage .sound-orb { width: 96px; height: 96px; flex: 0 0 auto; }
 .companion-stage .portrait-caption { position: relative; left: auto; bottom: auto; width: 100%; transform: none; gap: 8px; padding: 0 8px; }
 .companion-stage .portrait-caption strong { font-size: 18px; line-height: 1.6; }
 .companion-stage .portrait-caption > span:last-child { font-size: 14px; line-height: 1.7; }
 .companion-stage .caption-status { font-size: 12px; line-height: 1.5; }
-.companion-stage #avatar-status { margin: 0 0 16px; min-height: 24px; font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
+.companion-stage .avatar-service { padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 248, 240, .7); }
+.avatar-service-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: 15px; font-weight: 650; line-height: 1.6; }
+.avatar-service-hint { color: var(--muted); font-size: 12px; font-weight: 400; }
+.companion-stage #avatar-status { margin: 0 0 18px; min-height: 24px; font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+.companion-stage .avatar-service .service-details { margin: 0; }
+.companion-stage .avatar-service .avatar-controls { margin: 0 0 12px; }
+.companion-stage .demo-section .section-line { display: grid; gap: 8px; margin-bottom: 20px; }
+.companion-stage .demo-section .section-line .eyebrow { margin: 0; font-size: 14px; line-height: 1.7; letter-spacing: 0; }
+.companion-stage .demo-section .section-line > span { font-size: 12px; line-height: 1.6; }
+.companion-stage blockquote { margin: 28px 0 12px; font-size: 16px; line-height: 1.9; }
+@media (max-width: 600px) {
+  .companion-stage .model-controls { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .companion-stage .model-state { grid-column: 1; grid-row: 1; justify-self: start; min-height: 34px; padding: 5px 12px; }
+  .companion-stage .model-picker { grid-column: 1; grid-row: 2; }
+  .companion-stage .avatar-service { padding: 16px; }
+}
 .companion-stage .avatar-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
 .avatar-controls .quiet-button { min-width: 0; min-height: 44px; padding: 10px 12px; font-size: 14px; white-space: normal; line-height: 1.5; transition: transform .18s, background-color .18s, box-shadow .18s; }
 .avatar-controls .quiet-button:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 5px 12px #392e2a0d; }

@@ -154,6 +154,8 @@
           </div>
         </div>
 
+        <div class="avatar-service">
+        <div class="avatar-service-heading"><span>数字人陪伴</span><span class="avatar-service-hint">可选连接</span></div>
         <div id="avatar-stage" class="avatar-stage" hidden aria-label="实时数字人画面"></div>
         <p id="avatar-status" class="source-note" role="status">数字人未连接；点击连接后才会启用服务。</p>
         <div class="starter-options avatar-controls" role="group" aria-label="数字人控制">
@@ -163,6 +165,8 @@
           <button id="avatar-offline" class="quiet-button" type="button" disabled>切换离线</button>
         </div>
         <details class="service-details"><summary>数字人开通与使用</summary><ol class="avatar-setup-steps"><li>登录<a href="https://xingyun3d.com/" target="_blank" rel="noopener noreferrer">魔珐星云</a>，进入右上角“福利中心”，兑换比赛邀请码 <strong>XJBAB9YSTU</strong>，领取 1000 星云积分。</li><li>在控制台的“应用管理 → 驱动应用”创建应用，选择形象、场景、音色和表演，并保存 App ID 与 App Secret。</li><li>将两项凭据配置在服务端环境变量 <code>XINGYUN_APP_ID</code> 和 <code>XINGYUN_APP_SECRET</code>，不要放进浏览器代码。</li><li>点击“连接数字人”；连接后，开启语音时 AI 回复会由数字人播报。可随时打断或切到离线。</li></ol><p class="source-note">离线模式循环播放缓存视频，不消耗积分；恢复在线后可继续实时播报。离开页面会断开连接。</p><p class="source-note">依据<a href="https://xingyun3d.com/developers/52-194" target="_blank" rel="noopener noreferrer">魔珐星云《从零到一教学》</a>及 ACC 2026 活动方案。邀请码只用于兑换积分，不是应用密钥。</p></details>
+
+        </div>
 
         <blockquote id="companion-motto">“不催你。我们只找今天能迈出的第一步。”</blockquote>
         <div class="stage-meta">
