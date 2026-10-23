@@ -1,4 +1,8 @@
-.avatar-stage { width: 100%; height: 360px; position: relative; overflow: hidden; }
+.avatar-setup-steps { margin: 12px 0; padding-left: 22px; color: var(--ink); line-height: 1.7; }
+.avatar-setup-steps li + li { margin-top: 6px; }
+.avatar-setup-steps a { color: var(--coral); text-underline-offset: 3px; }
+.avatar-setup-steps code { font-size: 0.9em; overflow-wrap: anywhere; }
+.avatar-stage { width: 100%; aspect-ratio: 16 / 9; height: auto; min-height: 220px; max-height: 420px; position: relative; overflow: hidden; }
 .avatar-stage[hidden] { display: none; }
 .avatar-stage > * { width: 100%; height: 100%; }
 

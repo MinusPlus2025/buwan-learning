@@ -13,6 +13,7 @@
     unconfigured: '数字人服务尚未配置，请配置后重试。',
     error: '数字人连接失败，请重试。',
     closed: '数字人连接已断开，请重试。',
+    offline: '数字人处于离线模式，循环播放缓存视频，不消耗积分。',
     timeout: '数字人连接超时，请重试。',
     scriptError: '数字人组件加载失败，请重试。',
     scriptTimeout: '数字人组件加载超时，请重试。'
@@ -256,6 +257,39 @@
       return { ...next };
     }
 
+    function setMode(mode) {
+      const attempt = current;
+      if (!attempt || !['ready', 'offline'].includes(state.status) || !['offline', 'online'].includes(mode)) return false;
+      try {
+        if (mode === 'offline') {
+          if (state.status === 'offline') return true;
+          watchCommand(attempt, attempt.sdk.offlineMode());
+          if (!active(attempt)) return false;
+          setSpeaking(false);
+          publish({ status: 'offline', detail: DETAILS.offline });
+          return true;
+        }
+        if (state.status === 'ready') return true;
+        watchCommand(attempt, attempt.sdk.onlineMode());
+        if (!active(attempt)) return false;
+        publish({ status: 'ready', detail: DETAILS.ready });
+        return true;
+      } catch {
+        fail(attempt);
+        return false;
+      }
+    }
+
+    function setPresence(mode) {
+      const attempt = current;
+      if (!attempt || state.status !== 'ready' || typeof mode !== 'string') return false;
+      const methods = { idle: 'idle', listening: 'listen', thinking: 'think' };
+      const method = methods[mode];
+      if (!method || typeof attempt.sdk[method] !== 'function') return false;
+      try { watchCommand(attempt, attempt.sdk[method]()); return active(attempt); }
+      catch { fail(attempt); return false; }
+    }
+
     function speak(text) {
       const attempt = current;
       if (!attempt || state.status !== 'ready' || typeof text !== 'string' || !text.trim()) return false;
@@ -291,7 +325,8 @@
       }
     }
 
-    return { connect, disconnect, speak, stop, getState };
+    return { connect, disconnect, speak, stop, getState, setMode, setPresence,
+      setOffline(value) { return setMode(value ? 'offline' : 'online'); } };
   }
 
   root.BuwanAvatar = { createController, loadSdk };

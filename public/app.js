@@ -1011,6 +1011,7 @@ async function sendChatMessage(value, options = {}) {
   saveSession();
   setBusy(true, `${state.companion.name}正在想一个问题…`);
   setCompanionPresence('listening');
+  avatarController?.setPresence('thinking');
   const placeholder = appendMessage('assistant', '正在回应', { loading: true, demo: options.demo });
   state.activePlaceholder = placeholder.message;
   state.activeChat = { item, placeholder };
@@ -1495,19 +1496,25 @@ function setupAvatar() {
   if (!window.BuwanAvatar?.createController) return;
   avatarController = window.BuwanAvatar.createController({
     onState({ status, detail, progress }) {
-      const active = status === 'connecting' || status === 'ready';
+      const active = status === 'connecting' || status === 'ready' || status === 'offline';
       $('avatar-status').textContent = `${detail}${Number.isFinite(progress) ? ` ${Math.round(progress)}%` : ''}`;
       $('avatar-stage').hidden = !active;
       document.querySelector('.portrait-frame')?.setAttribute('aria-label', status === 'ready' ? '学伴对话状态' : '数字人尚未连接');
       $('avatar-connect').disabled = active;
       $('avatar-disconnect').disabled = !active;
       $('avatar-stop').disabled = status !== 'ready';
+      $('avatar-offline').disabled = status !== 'ready';
+      $('avatar-offline').textContent = status === 'offline' ? '切换在线' : '切换离线';
       if (!active) { state.speaking = false; $('tts-toggle').disabled = false; }
     },
     onSpeaking(value) { state.speaking = value; }
   });
   $('avatar-connect').addEventListener('click', () => { stopSpeech(); void avatarController.connect(); });
   $('avatar-stop').addEventListener('click', stopSpeech);
+  $('avatar-offline').addEventListener('click', () => {
+    const offline = avatarController.setOffline(avatarController.getState().status !== 'offline');
+    if (!offline) setStatus('数字人模式切换失败，请重试。', true);
+  });
   $('avatar-disconnect').addEventListener('click', () => { stopSpeech(); avatarController.disconnect(); });
   const disconnect = () => { stopRecognition(); stopSpeech(); avatarController.disconnect(); };
   window.addEventListener('pagehide', disconnect);
@@ -1608,6 +1615,7 @@ function setupRecognition() {
     state.recognition = recognition;
     recognition.onstart = () => {
       if (!current()) return;
+      avatarController?.setPresence('listening');
       $('voice-input').classList.add('listening');
       setStatus('正在听，请说话…');
     };
@@ -1626,6 +1634,7 @@ function setupRecognition() {
     };
     recognition.onend = () => {
       if (!current()) return;
+      avatarController?.setPresence('idle');
       state.recognition = null;
       state.recognitionToken += 1;
       $('voice-input').classList.remove('listening');

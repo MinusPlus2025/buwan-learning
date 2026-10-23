@@ -81,6 +81,11 @@ function harness({ fetchImpl, init, SDKClass, loadSdk, onState, onSpeaking } = {
     }
     speak(...args) { this.calls.push(['speak', ...args]); }
     interactiveidle() { this.calls.push(['interactiveidle']); }
+    offlineMode() { this.calls.push(['offlineMode']); }
+    onlineMode() { this.calls.push(['onlineMode']); }
+    idle() { this.calls.push(['idle']); }
+    listen() { this.calls.push(['listen']); }
+    think() { this.calls.push(['think']); }
     destroy() { this.destroyCount++; }
   }
   const controller = env.api.createController({
@@ -280,6 +285,32 @@ test('仅 ready 后可播报，XML 字符被转义，重复播报与 stop 使用
   assert.equal(h.controller.speak('再见'), false);
   assert.equal(h.controller.stop(), false);
   assert.equal(sdk.destroyCount, 1);
+});
+
+test('离线与在线模式切换复用当前实例，离线中可正常断开', async () => {
+  const h = harness();
+  const sdk = await online(h);
+  assert.equal(h.controller.setOffline(true), true);
+  assert.equal(h.controller.getState().status, 'offline');
+  assert.equal(h.controller.getState().detail, '数字人处于离线模式，循环播放缓存视频，不消耗积分。');
+  assert.deepEqual(sdk.calls, [['offlineMode']]);
+  assert.equal(h.controller.speak('在线播报不可用'), false);
+  assert.equal(h.controller.setOffline(true), true);
+  assert.deepEqual(sdk.calls, [['offlineMode']]);
+  assert.equal(h.controller.setOffline(false), true);
+  assert.equal(h.controller.getState().status, 'ready');
+  assert.deepEqual(sdk.calls, [['offlineMode'], ['onlineMode']]);
+  h.controller.disconnect();
+  assert.equal(sdk.destroyCount, 1);
+});
+
+test('数字人待机、聆听和思考状态映射至官方 SDK 方法', async () => {
+  const h = harness();
+  const sdk = await online(h);
+  for (const status of ['idle', 'listening', 'thinking']) assert.equal(h.controller.setPresence(status), true);
+  assert.deepEqual(sdk.calls, [['idle'], ['listen'], ['think']]);
+  assert.equal(h.controller.setPresence('unknown'), false);
+  h.controller.disconnect();
 });
 
 test('兼容文档中的两种语音回调，旧连接回调不能改变 speaking 或新状态', async () => {
