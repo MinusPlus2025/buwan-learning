@@ -215,6 +215,7 @@ function setCompanionPresence(status) {
   const copy = {
     idle: ['在这里', '学伴正在这里等你', '先从一件想学的事开始'],
     listening: ['认真听', '我在认真听', '不用一次说清楚，慢慢来'],
+    thinking: ['正在思考', '正在为你整理思路', '把愿望变成今天的一小步'],
     responding: ['正在回应', '正在为你整理思路', '把愿望变成今天的一小步'],
     complete: ['完成第一步', '今天的开始已留下', '你已经为兴趣迈出一步']
   }[status] || ['在这里', '学伴正在这里等你', '先从一件想学的事开始'];
@@ -1016,7 +1017,7 @@ async function sendChatMessage(value, options = {}) {
   state.sessionActive = true;
   saveSession();
   setBusy(true, `${state.companion.name}正在想一个问题…`);
-  setCompanionPresence('listening');
+  setCompanionPresence('thinking');
   avatarController?.setPresence('thinking');
   const placeholder = appendMessage('assistant', '正在回应', { loading: true, demo: options.demo });
   state.activePlaceholder = placeholder.message;
@@ -1503,17 +1504,19 @@ function setupAvatar() {
   avatarController = window.BuwanAvatar.createController({
     onState({ status, detail, progress }) {
       const active = status === 'connecting' || status === 'ready' || status === 'offline';
+      $('companion-stage').dataset.avatarState = status;
+      $('avatar-connect').textContent = status === 'connecting' ? '正在连接' : status === 'ready' || status === 'offline' ? '数字人已连接' : '连接数字人';
       $('avatar-status').textContent = `${detail}${Number.isFinite(progress) ? ` ${Math.round(progress)}%` : ''}`;
-      $('avatar-stage').hidden = !active;
+      $('avatar-stage').hidden = status !== 'ready' && status !== 'offline';
       document.querySelector('.portrait-frame')?.setAttribute('aria-label', status === 'ready' ? '学伴对话状态' : '数字人尚未连接');
       $('avatar-connect').disabled = active;
       $('avatar-disconnect').disabled = !active;
       $('avatar-stop').disabled = status !== 'ready';
-      $('avatar-offline').disabled = status !== 'ready';
+      $('avatar-offline').disabled = status !== 'ready' && status !== 'offline';
       $('avatar-offline').textContent = status === 'offline' ? '切换在线' : '切换离线';
       if (!active) { state.speaking = false; $('tts-toggle').disabled = false; }
     },
-    onSpeaking(value) { state.speaking = value; }
+    onSpeaking(value) { state.speaking = value; setCompanionPresence(value ? 'responding' : state.busy ? 'thinking' : 'idle'); }
   });
   $('avatar-connect').addEventListener('click', () => { stopSpeech(); void avatarController.connect(); });
   $('avatar-stop').addEventListener('click', stopSpeech);
@@ -1534,6 +1537,7 @@ function stopSpeech() {
   $('tts-toggle').disabled = false;
   $('preview-voice').disabled = false;
   window.speechSynthesis?.cancel?.();
+  setCompanionPresence(state.busy ? 'thinking' : 'idle');
 }
 
 function previewVoice() {
@@ -1581,8 +1585,9 @@ function speak(content) {
     state.speaking = false;
     $('tts-toggle').disabled = false;
   };
-  utterance.onend = restore;
-  utterance.onerror = restore;
+  utterance.onstart = () => { if (state.utterance === utterance) setCompanionPresence('responding'); };
+  utterance.onend = () => { if (state.utterance === utterance) { restore(); setCompanionPresence('idle'); } };
+  utterance.onerror = utterance.onend;
   speechSynthesis.speak(utterance);
 }
 
@@ -1592,6 +1597,8 @@ function stopRecognition(abort = true) {
   state.recognitionToken += 1;
   $('voice-input').classList.remove('listening');
   if (recognition) {
+    avatarController?.setPresence('idle');
+    setCompanionPresence(state.busy ? 'thinking' : 'idle');
     try { recognition[abort ? 'abort' : 'stop'](); } catch { /* 识别可能已由浏览器结束。 */ }
   }
 }
@@ -1622,6 +1629,7 @@ function setupRecognition() {
     recognition.onstart = () => {
       if (!current()) return;
       avatarController?.setPresence('listening');
+      setCompanionPresence('listening');
       $('voice-input').classList.add('listening');
       setStatus('正在听，请说话…');
     };
@@ -1641,6 +1649,7 @@ function setupRecognition() {
     recognition.onend = () => {
       if (!current()) return;
       avatarController?.setPresence('idle');
+      setCompanionPresence('idle');
       state.recognition = null;
       state.recognitionToken += 1;
       $('voice-input').classList.remove('listening');

@@ -3110,6 +3110,48 @@ html { scroll-padding-top: 90px; }
 .starter-config, .starter-action { border-radius: 18px; }
 .service-details { color: var(--muted); font-size: 11px; margin: 12px 0; }
 .service-details summary { cursor: pointer; }
+/* Keep companion controls and captions in their own flow. */
+.companion-stage .stage-head { display: grid; gap: 20px; }
+.companion-stage .stage-head > div { min-width: 0; }
+.companion-stage .stage-head h2 { line-height: 1.5; overflow-wrap: anywhere; }
+.companion-stage .model-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.companion-stage .model-state { min-height: 40px; font-size: 13px; padding: 8px 12px; }
+.model-picker { display: grid; flex: 1 1 180px; min-width: 0; gap: 6px; }
+.model-picker label { color: var(--muted); font-size: 12px; }
+#model-select { width: 100%; min-width: 0; min-height: 44px; padding: 10px 32px 10px 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; font-size: 14px; color: var(--ink); background-color: var(--surface); text-overflow: ellipsis; transition: border-color .2s, box-shadow .2s; }
+#model-select:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.companion-stage .portrait-frame { width: 100%; height: auto; min-height: 246px; margin: 28px auto 24px; padding: 20px 0 0; gap: 24px; }
+.companion-stage .stage-glow { width: 150px; height: 150px; inset: 0 auto auto 50%; transform: translateX(-50%); }
+.companion-stage .sound-orb { width: 96px; height: 96px; flex: 0 0 auto; }
+.companion-stage .portrait-caption { position: relative; left: auto; bottom: auto; width: 100%; transform: none; gap: 8px; padding: 0 8px; }
+.companion-stage .portrait-caption strong { font-size: 18px; line-height: 1.6; }
+.companion-stage .portrait-caption > span:last-child { font-size: 14px; line-height: 1.7; }
+.companion-stage .caption-status { font-size: 12px; line-height: 1.5; }
+.companion-stage #avatar-status { margin: 0 0 16px; min-height: 24px; font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
+.companion-stage .avatar-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.avatar-controls .quiet-button { min-width: 0; min-height: 44px; padding: 10px 12px; font-size: 14px; white-space: normal; line-height: 1.5; transition: transform .18s, background-color .18s, box-shadow .18s; }
+.avatar-controls .quiet-button:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 5px 12px #392e2a0d; }
+.avatar-controls .quiet-button:not(:disabled):active { transform: scale(.97); }
+.companion-stage .service-details { margin-bottom: 24px; font-size: 14px; line-height: 1.8; }
+.service-details summary { min-height: 44px; padding-block: 8px; cursor: pointer; }
+.service-details .source-note { font-size: 13px; line-height: 1.8; }
+.companion-stage .stage-meta { flex-wrap: wrap; font-size: 12px; line-height: 1.7; }
+.companion-stage[data-avatar-state="connecting"] #avatar-connect::after { content: ''; display: inline-block; width: 12px; height: 12px; margin-left: 8px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: companion-spin .8s linear infinite; }
+.companion-stage .sound-core i { animation-play-state: paused; }
+.companion-stage .sound-orb[data-state="idle"] .sound-core { animation: companion-breathe 4s ease-in-out infinite; }
+.companion-stage .sound-orb[data-state="listening"] .sound-ring { animation: companion-listen 1.8s ease-out infinite; }
+.companion-stage .sound-orb[data-state="listening"] .sound-ring-two { animation-delay: .7s; }
+.companion-stage .sound-orb[data-state="thinking"] .sound-ring-one { border-style: dashed; border-color: var(--coral); animation: companion-spin 6s linear infinite; }
+.companion-stage .sound-orb[data-state="thinking"] .sound-core { animation: companion-breathe 1.6s ease-in-out infinite; }
+.companion-stage .sound-orb[data-state="responding"] .sound-core i { animation-play-state: running; }
+.companion-stage .sound-orb[data-state="complete"] .sound-core { animation: companion-celebrate .6s ease-out; }
+@keyframes companion-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@keyframes companion-listen { 0% { transform: scale(.9); opacity: .8; } 100% { transform: scale(1.45); opacity: 0; } }
+@keyframes companion-spin { to { transform: rotate(360deg); } }
+@keyframes companion-celebrate { 0% { transform: scale(.85); } 65% { transform: scale(1.16); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .companion-stage *, .companion-stage *::after { animation: none !important; transition: none !important; }
+}
 #conversation, #unlock-panel, #learning-history, #interest-inspiration { scroll-margin-top: 96px; }
 #learning-history { margin-top: 58px; padding-top: 32px; border-top: 1px solid var(--line); }
 #learning-history .history-intro { display: grid; gap: 12px; padding-bottom: 0; }

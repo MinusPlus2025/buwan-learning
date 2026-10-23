@@ -1244,6 +1244,13 @@ test('数字人仅点击连接，播报走已连接控制器，隐藏页面立�
   await app.node('avatar-connect').dispatch('click');
   assert.equal(app.node('avatar-connect').disabled, true);
   assert.equal(app.node('avatar-stage').hidden, false);
+  callbacks.onState({ status: 'offline', detail: '离线中' });
+  assert.equal(app.node('avatar-offline').disabled, false);
+  assert.equal(app.node('avatar-offline').textContent, '切换在线');
+  callbacks.onState({ status: 'connecting', detail: '连接中' });
+  assert.equal(app.node('avatar-stage').hidden, true);
+  assert.equal(app.node('companion-stage').dataset.avatarState, 'connecting');
+  callbacks.onState({ status: 'ready', detail: '已连接' });
   app.state.ttsEnabled = true;
   app.speak('数字人回应');
   assert.deepEqual(calls.at(-1), ['speak', '数字人回应']);

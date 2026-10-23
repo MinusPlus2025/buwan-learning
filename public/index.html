@@ -130,13 +130,13 @@
     </ol>
 
     <div class="lounge-layout">
-      <aside class="companion-stage" aria-labelledby="stage-title">
+      <aside id="companion-stage" class="companion-stage" aria-labelledby="stage-title">
         <div class="stage-head">
           <div>
             <p class="eyebrow">YOUR LEARNING COMPANION</p>
             <h2 id="stage-title"><span id="stage-companion-name">阿晚</span>，在这儿。</h2>
           </div>
-          <div><button id="model-state" class="model-state" type="button" role="status" title="重新连接学伴">连接中</button><label class="sr-only" for="model-select">选择对话模型</label><select id="model-select" aria-label="选择对话模型" disabled><option>正在获取模型</option></select></div>
+          <div class="model-controls"><button id="model-state" class="model-state" type="button" role="status" title="重新连接学伴">连接中</button><div class="model-picker"><label for="model-select">对话模型</label><select id="model-select" aria-label="选择对话模型" disabled><option>正在获取模型</option></select></div></div>
         </div>
 
         <div class="portrait-frame" aria-label="数字人尚未连接">
@@ -156,7 +156,7 @@
 
         <div id="avatar-stage" class="avatar-stage" hidden aria-label="实时数字人画面"></div>
         <p id="avatar-status" class="source-note" role="status">数字人未连接；点击连接后才会启用服务。</p>
-        <div class="starter-options" role="group" aria-label="数字人控制">
+        <div class="starter-options avatar-controls" role="group" aria-label="数字人控制">
           <button id="avatar-connect" class="quiet-button" type="button">连接数字人</button>
           <button id="avatar-stop" class="quiet-button" type="button" disabled>打断播报</button>
           <button id="avatar-disconnect" class="quiet-button" type="button" disabled>断开连接</button>
