@@ -12,12 +12,12 @@
   <a class="skip-link" href="#chat-input">跳到对话输入</a>
   <aside class="rail" aria-label="主导航">
     <a class="brand" href="#app" aria-label="不晚，回到首页">
-      <span class="brand-mark" aria-hidden="true"><img src="/b1-logo.png" alt=""></span>
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 80 80" focusable="false"><rect width="80" height="80" rx="24" fill="#EF7049"></rect><path d="M19 46C19 33 28 24 43 22L38 45C35 54 27 59 19 58Z" fill="#FFF8F0"></path><path d="M38 45C43 34 52 29 63 30L57 49C54 58 45 61 32 59Z" fill="#F6CF8A"></path></svg></span>
       <span class="brand-copy"><span class="brand-cn">不晚</span><span class="slogan">想学，就从今天开始</span></span>
     </a>
     <nav class="rail-nav">
       <a class="nav-link active" href="#app" aria-label="我的练习室"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m3 10 9-7 9 7v11h-7v-7h-4v7H3z"/></svg><span>我的练习室</span></a>
-      <a class="nav-link" href="#interest-section" aria-label="发现兴趣"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m16 8-2.5 5.5L8 16l2.5-5.5z"/></svg><span>发现兴趣</span></a>
+      <a class="nav-link" href="#interest-inspiration" aria-label="发现兴趣"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m16 8-2.5 5.5L8 16l2.5-5.5z"/></svg><span>发现兴趣</span></a>
       <a class="nav-link" href="#conversation" aria-label="和学伴聊聊"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 4h16v13H9l-5 4zM8 9h8M8 13h5"/></svg><span>和学伴聊聊</span></a>
     </nav>
     <div class="rail-foot"><span class="rail-flower" aria-hidden="true">✳</span><p>给喜欢的事，<br>留一点时间。</p><small>不晚 · 成人兴趣学习</small></div>
@@ -43,7 +43,14 @@
         <p class="hero-kicker"><span></span> A LITTLE TIME, JUST FOR YOU</p>
         <h1 id="seed-title"><span>想学，</span><span>就从<em>今天</em>开始。</span></h1>
         <p class="hero-subtitle">那件一直想试试的事，还在等你。<br>不用准备好一切，先给喜欢的事十分钟。</p>
-        <div class="hero-actions"><a class="primary-button begin-button" href="#interest-section">找到我的第一步 <span aria-hidden="true">↗</span></a><a class="hero-chat-link" href="#conversation">还没想好？和学伴聊聊 <span aria-hidden="true">→</span></a></div>
+        <form id="interest-form" class="interest-form" novalidate>
+          <label for="interest-input">今天，想给什么兴趣一点时间？</label>
+          <div class="interest-entry"><input id="interest-input" type="text" maxlength="80" autocomplete="off" placeholder="陶艺、口琴，或给家人拍一段短片…" aria-describedby="interest-help interest-feedback"><button class="primary-button" type="submit">从这里开始 <span aria-hidden="true">↗</span></button></div>
+          <p id="interest-help">任何想学的事都可以。先找到今天能完成的一小步。</p>
+          <p id="interest-feedback" class="interest-feedback" role="status" aria-live="polite"></p>
+        </form>
+        <div class="hero-actions"><a class="hero-chat-link" href="#conversation">还没想好？和学伴聊聊 <span aria-hidden="true">→</span></a><a class="hero-chat-link" href="#interest-inspiration">看看兴趣灵感 <span aria-hidden="true">↓</span></a></div>
+        <div class="hero-footnote"><span class="tiny-sun" aria-hidden="true"></span><span>从十分钟开始，按自己的节奏。</span></div>
       </div>
       <div class="hero-art" aria-label="兴趣桌面">
         <div class="desk-experience" aria-label="可旋转的兴趣桌面，拖动查看，点击琴键试听" tabindex="0">
@@ -87,8 +94,10 @@
     </section>
 
     <section id="interest-section" class="interest-section" aria-labelledby="interest-title">
-      <div class="section-heading"><div><p class="eyebrow">FIND YOUR SPARK</p><h2 id="interest-title">今天，想试试什么？</h2></div><span class="section-index">选一个兴趣，找到适合你的开始 <span aria-hidden="true">↙</span></span></div>
-      <div id="interest-seeds" class="seed-list" aria-label="选择一个想开始的兴趣"></div>
+      <nav class="studio-tabs" aria-label="练习室快捷入口"><a class="studio-tab active" href="#interest-section"><span>01</span> 今日练习</a><a class="studio-tab" href="#conversation"><span>02</span> 和学伴聊聊</a><a class="studio-tab" href="#unlock-panel"><span>03</span> 开始手册</a><a class="studio-tab" href="#learning-history"><span>04</span> 练习记录</a></nav>
+      <div class="section-heading"><div><p class="eyebrow">MAKE ROOM FOR WHAT YOU LOVE</p><h2 id="interest-title">给喜欢的事，一个开始。</h2></div><span class="section-index">今天，做一点就好。</span></div>
+      <details id="interest-inspiration" class="interest-inspiration"><summary>找一点兴趣灵感 <span>音乐、手作、生活，还有更多 <b aria-hidden="true">＋</b></span></summary><div id="interest-seeds" class="seed-list" aria-label="兴趣灵感示例，也可以输入自己的想法"></div></details>
+      <div class="studio-empty"><div class="empty-orbit" aria-hidden="true"><span>10</span><small>分钟</small></div><div><strong>你的第一小步，从一个想法开始。</strong><p>写下想学的事，选好今天的时间，再开始练习。</p><a href="#interest-input">写下我的想法 <span aria-hidden="true">↗</span></a></div><div class="empty-steps"><span>想学什么</span><i></i><span>留点时间</span><i></i><span>开始一次</span></div></div>
       <div id="starter-workbench" class="starter-workbench" hidden>
         <div class="starter-config">
           <p class="starter-eyebrow">把“以后再说”变成今天的一小步</p>
@@ -100,11 +109,11 @@
         <div class="starter-action">
           <div class="starter-action-head"><span class="starter-pill">今天 · 第一小步</span><span id="starter-session-state" role="status">由你决定何时开始</span><button id="starter-exit-focus" class="quiet-button" type="button" hidden>返回会客厅</button></div>
           <label for="starter-task" class="starter-task-label">把任务改成你今天真正愿意做的事</label>
-          <textarea id="starter-task" rows="3" maxlength="200"></textarea>
+          <textarea id="starter-task" rows="3" maxlength="2000"></textarea>
           <p id="starter-task-note" class="starter-task-note">这是预设起步建议，可以自由修改。</p>
           <div class="starter-session">
             <div id="starter-clock-ring" class="starter-clock-ring"><span id="starter-clock">10:00</span></div>
-            <div class="starter-session-actions"><button id="starter-start" class="primary-button" type="button">开始这一小步</button><button id="starter-complete" class="secondary-button" type="button" disabled>我完成了</button></div>
+            <div class="starter-session-actions"><button id="starter-start" class="primary-button" type="button">开始这一小步</button><button id="starter-complete" class="secondary-button" type="button" disabled>我完成了</button><button id="starter-next" class="quiet-button" type="button" hidden>继续另一项任务</button></div>
           </div>
           <div id="starter-achievement" class="starter-achievement" role="status" hidden></div>
         </div>
@@ -127,7 +136,7 @@
             <p class="eyebrow">YOUR LEARNING COMPANION</p>
             <h2 id="stage-title"><span id="stage-companion-name">阿晚</span>，在这儿。</h2>
           </div>
-          <button id="model-state" class="model-state" type="button" role="status" title="重新连接学伴">连接中</button>
+          <div><button id="model-state" class="model-state" type="button" role="status" title="重新连接学伴">连接中</button><label class="sr-only" for="model-select">选择对话模型</label><select id="model-select" aria-label="选择对话模型" disabled><option>正在获取模型</option></select></div>
         </div>
 
         <div class="portrait-frame" aria-label="数字人尚未连接">
@@ -144,6 +153,15 @@
             <span id="companion-state-detail">先从一件想学的事开始</span>
           </div>
         </div>
+
+        <div id="avatar-stage" class="avatar-stage" hidden aria-label="实时数字人画面"></div>
+        <p id="avatar-status" class="source-note" role="status">数字人未连接；点击连接后才会启用服务。</p>
+        <div class="starter-options" role="group" aria-label="数字人控制">
+          <button id="avatar-connect" class="quiet-button" type="button">连接数字人</button>
+          <button id="avatar-stop" class="quiet-button" type="button" disabled>打断播报</button>
+          <button id="avatar-disconnect" class="quiet-button" type="button" disabled>断开连接</button>
+        </div>
+        <details class="service-details"><summary>关于数字人服务</summary><p class="source-note">连接可能消耗数字人服务额度；已连接且开启语音时，AI 回复会交给数字人播报。离开页面会断开。</p></details>
 
         <blockquote id="companion-motto">“不催你。我们只找今天能迈出的第一步。”</blockquote>
         <div class="stage-meta">
@@ -179,7 +197,7 @@
         <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-relevant="additions text"></div>
 
         <div class="composer-wrap">
-          <p id="privacy-note" class="privacy-note">发送后，内容会交给模型处理；生成手册时，关键词也会用于搜索。请勿发送隐私信息。</p>
+          <p id="privacy-note" class="privacy-note">发送后，内容会交给模型处理。对话和草稿保存在本浏览器；生成手册时会检索公开页面；全网检索是否可用取决于服务配置。数字人仅在你点击连接后启用。请勿发送隐私信息。</p>
           <div class="composer">
             <button id="voice-input" class="icon-button voice-button" type="button" title="语音输入" aria-label="语音输入">
               <svg class="microphone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M6 10v2a6 6 0 0 0 12 0v-2M12 18v3M9 21h6"></path></svg>
@@ -189,7 +207,7 @@
             <button id="send-message" class="send-button" type="button" aria-label="发送消息">发送</button>
           </div>
           <div class="composer-footer">
-            <p id="chat-status" class="chat-status" role="status">选择一颗兴趣种子，或者直接和学伴说说。</p>
+            <p id="chat-status" class="chat-status" role="status">写下你的学习愿望，或者直接和学伴说说。</p>
             <span id="input-count">0 / 500</span>
           </div>
         </div>
@@ -213,6 +231,18 @@
         <p id="guide-story" class="guide-story"></p>
       </div>
       <div id="guide-content"></div>
+    </section>
+
+    <section id="learning-history" class="guide-section" aria-labelledby="learning-history-heading">
+      <div class="guide-intro">
+        <h2 id="learning-history-heading">每日学习历史</h2>
+        <p class="source-note">仅保存在本浏览器，最多保留最近 200 项任务。完成一项练习不代表整周完成。旧任务会保留原有日期；未记录的完成时间不作推测。</p>
+      </div>
+      <div class="starter-options">
+        <label for="learning-history-date">日期 <input id="learning-history-date" type="date"></label>
+        <label for="learning-history-interest">兴趣 <input id="learning-history-interest" type="search" maxlength="80" placeholder="筛选兴趣"></label>
+      </div>
+      <div id="learning-history-list" class="resource-list"></div>
     </section>
   </main>
   </div>
@@ -270,7 +300,7 @@
     <form method="dialog">
       <p class="eyebrow">发送前确认</p>
       <h2 id="consent-title">让学伴读到这段话？</h2>
-      <p>你的对话会发送给 AI 模型；生成手册时，提取出的搜索词会发送到搜索服务。请不要输入姓名、电话、住址等隐私信息。</p>
+      <p>你的对话会发送给 AI 模型，消息、手册和草稿会保存在当前浏览器，不会跨设备同步。生成手册时会将兴趣和提取出的关键词发送给已配置的搜索服务；默认使用 Wikipedia，配置全网搜索后使用 Brave。检索结果不等于课程质量或免费性的核验。请不要输入姓名、电话、住址等隐私信息。</p>
       <div class="dialog-actions split-actions">
         <button id="decline-consent" class="secondary-button" type="button">先不发送</button>
         <button id="accept-consent" class="primary-button" type="button">同意并发送</button>
@@ -279,6 +309,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js"></script>
+  <script src="/avatar.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

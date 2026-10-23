@@ -8,6 +8,11 @@ const publicConfig = {
 
 const STORAGE_KEY = 'buwan_companion';
 const STARTER_PROGRESS_KEY = 'buwan_starter_progress';
+const LEARNING_HISTORY_KEY = 'buwan_learning_history';
+const MAX_LEARNING_RECORDS = 200;
+const SESSION_KEY = 'buwan_session';
+const MODEL_KEY = 'buwan_model';
+const MAX_SAVED_MESSAGES = 40;
 const DEFAULT_COMPANION = { v: 1, name: '学伴', userTitle: '', call_me: '', avatar_id: 'paper', voice_id: '', style: 'gentle' };
 const INTERESTS = ['钢琴', '绘画', '游泳', '摄影', '书法', '编程', '烘焙', '英语', '舞蹈', '园艺'];
 const INTEREST_SCENES = {
@@ -45,6 +50,7 @@ const state = {
   modelStatus: 'loading',
   companion: { ...DEFAULT_COMPANION },
   messages: [],
+  topicStart: 0,
   userTurns: 0,
   interests: new Set(),
   conversationId: makeUuid(),
@@ -57,13 +63,21 @@ const state = {
   demoToken: 0,
   consented: false,
   pendingFirstMessage: '',
+  pendingChatOptions: null,
   pendingDemo: null,
   ttsEnabled: false,
   speaking: false,
+  utterance: null,
   recognition: null,
+  recognitionToken: 0,
   guide: null,
   searchMeta: null,
-  activePlaceholder: null
+  guideStatus: 'idle',
+  activePlaceholder: null,
+  activeChat: null,
+  sessionActive: false,
+  storageAvailable: true,
+  restored: false
 };
 
 function makeUuid() {
@@ -90,8 +104,109 @@ function el(tag, className, content) {
 }
 
 function setStatus(message, isError = false) {
-  $('chat-status').textContent = message;
-  $('chat-status').classList.toggle('error', isError);
+  const guideState = state.guideStatus === 'interrupted' ? '上次手册生成未完成，可重新生成。'
+    : state.guideStatus === 'failed' ? '上次手册生成失败，可重试。' : '';
+  const storage = state.storageAvailable
+    ? `${state.restored ? `已从本浏览器恢复；${guideState}` : ''}会话与草稿仅保存在本浏览器（最近 40 条消息）。`
+    : '本地保存不可用，刷新后可能丢失，请勿关闭页面。';
+  $('chat-status').textContent = `${message} ${storage}`;
+  $('chat-status').classList.toggle('error', isError || !state.storageAvailable);
+}
+
+function saveSession() {
+  if (!state.sessionActive) return;
+  const dropped = Math.max(0, state.messages.length - MAX_SAVED_MESSAGES);
+  const snapshot = {
+    v: 1,
+    messages: state.messages.slice(dropped),
+    topicStart: Math.max(0, state.topicStart - dropped),
+    userTurns: state.userTurns,
+    interests: [...state.interests],
+    conversationId: state.conversationId,
+    guide: state.guide,
+    guideStatus: state.guideStatus,
+    searchMeta: state.searchMeta,
+    chatDraft: $('chat-input').value.slice(0, 500),
+    interestDraft: $('interest-input').value.slice(0, 80)
+  };
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(snapshot));
+    state.storageAvailable = true;
+  } catch {
+    state.storageAvailable = false;
+    setStatus('当前内容仍可在本页使用。', true);
+  }
+}
+
+function saveDrafts() {
+  state.sessionActive = true;
+  saveSession();
+}
+
+function restoreSession() {
+  let saved;
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return false;
+    saved = JSON.parse(raw);
+    if (saved?.v !== 1 || !Array.isArray(saved.messages)
+      || saved.messages.some(item => !item || !['user', 'assistant'].includes(item.role) || typeof item.content !== 'string')
+      || !Number.isInteger(saved.topicStart) || saved.topicStart < 0 || saved.topicStart > saved.messages.length
+      || !Number.isInteger(saved.userTurns) || saved.userTurns < 0
+      || typeof saved.conversationId !== 'string' || !/^[a-f0-9-]{36}$/i.test(saved.conversationId)
+      || !Array.isArray(saved.interests) || saved.interests.some(item => typeof item !== 'string' || !item.trim() || item.length > 80)) {
+      throw new Error('保存的会话格式无效');
+    }
+  } catch {
+    state.storageAvailable = false;
+    return false;
+  }
+  const dropped = Math.max(0, saved.messages.length - MAX_SAVED_MESSAGES);
+  state.messages = saved.messages.slice(dropped).map(item => ({
+    id: text(item.id) || makeUuid(), role: item.role, content: item.content,
+    status: ['success', 'failed', 'interrupted'].includes(item.status) ? item.status : item.status === 'pending' ? 'interrupted' : 'success',
+    error: item.status === 'pending' ? '上次回应未完成，请重试。' : text(item.error),
+    partial: text(item.partial), demo: item.demo === true
+  }));
+  state.topicStart = Math.max(0, saved.topicStart - dropped);
+  state.userTurns = saved.userTurns;
+  state.interests = new Set(saved.interests.slice(0, 1));
+  state.conversationId = saved.conversationId;
+  state.guide = saved.guide && typeof saved.guide === 'object' && !Array.isArray(saved.guide) ? saved.guide : null;
+  state.searchMeta = saved.searchMeta && typeof saved.searchMeta === 'object' && !Array.isArray(saved.searchMeta)
+    ? { ...saved.searchMeta, results: asArray(saved.searchMeta.results).filter(item => item && typeof item === 'object') } : { results: [], configured: false, note: '' };
+  state.guideStatus = saved.guideStatus === 'generating' ? 'interrupted'
+    : ['complete', 'failed', 'interrupted'].includes(saved.guideStatus) ? saved.guideStatus : 'idle';
+  state.sessionActive = true;
+  state.restored = true;
+  $('chat-input').value = text(saved.chatDraft).slice(0, 500);
+  $('input-count').textContent = `${$('chat-input').value.length} / 500`;
+  $('interest-input').value = text(saved.interestDraft ?? [...state.interests][0]).slice(0, 80);
+  $('interest-feedback').textContent = state.interests.size ? `当前会话兴趣：「${[...state.interests][0]}」。输入框的修改需确认后生效。` : '兴趣草稿尚未确认。';
+  $('conversation-id-short').textContent = state.conversationId.slice(0, 8);
+  $('chat-log').replaceChildren();
+  state.messages.forEach(renderSavedMessage);
+  renderSeeds();
+  document.querySelectorAll('[data-desk-interest]').forEach(button => {
+    const selected = state.interests.has(button.dataset.deskInterest);
+    button.classList.toggle('selected', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+  if (state.interests.size) openStarter([...state.interests][0]);
+  if (state.guide) renderGuide(state.guide, state.searchMeta, { restoring: true });
+  updateUnlock();
+  saveSession();
+  setStatus(state.guideStatus === 'interrupted' ? '上次手册生成已中断，可重新生成；未恢复后台请求或计时。' : '已恢复会话、草稿和已完成手册；未恢复后台请求或计时。');
+  return true;
+}
+
+function renderSavedMessage(item) {
+  const rendered = appendMessage(item.role, item.content, { demo: item.demo });
+  if (item.role === 'user' && ['failed', 'interrupted'].includes(item.status)) {
+    const failure = appendMessage('assistant', `${item.partial ? `${item.partial}（未完成）\n` : ''}${item.error || '上次回应未完成，请重试。'}`, { demo: item.demo });
+    addRetryButton(failure.message, item);
+  }
+  return rendered;
 }
 
 function setCompanionPresence(status) {
@@ -216,51 +331,220 @@ function renderSeeds() {
     }
     button.type = 'button';
     button.setAttribute('aria-pressed', String(state.interests.has(interest)));
-    button.addEventListener('click', () => {
-      if (state.busy || state.generating || state.demoRunning) {
-        setStatus('当前回应还没结束，稍后再选择兴趣。');
-        return;
-      }
-      state.interests = new Set([interest]);
-      renderSeeds();
-      openStarter(interest);
-    });
+    button.addEventListener('click', () => selectInterest(interest));
     root.append(button);
   });
 }
 
-const starter = { interest: '', worry: '怕坚持不下来', minutes: 10, remaining: 600, deadline: 0, timer: null, running: false, started: false, completed: false, fromGuide: false };
+function selectInterest(value) {
+  const interest = text(value).replace(/\s+/g, ' ').trim();
+  const feedback = $('interest-feedback');
+  if (!interest || interest.length > 80) {
+    feedback.textContent = interest ? '先用 80 字以内描述这件事。' : '先写下一件想学或想做到的事。';
+    $('interest-input').setAttribute('aria-invalid', 'true');
+    $('interest-input').focus();
+    return false;
+  }
+  if (state.busy || state.generating || state.demoRunning) {
+    feedback.textContent = '学伴正在回应，结束后就可以换一个想法。';
+    return false;
+  }
+  const previous = [...state.interests][0];
+  if (previous !== interest) {
+    if (!prepareStarterSwitch(interest)) return false;
+    stopRecognition();
+    stopSpeech();
+    state.userTurns = 0;
+    state.guide = null;
+    state.searchMeta = null;
+    state.guideStatus = 'idle';
+    $('chat-input').value = '';
+    $('input-count').textContent = '0 / 500';
+    state.pendingFirstMessage = '';
+    state.pendingChatOptions = null;
+    state.topicStart = state.messages.length;
+    state.conversationId = makeUuid();
+    $('conversation-id-short').textContent = state.conversationId.slice(0, 8);
+    $('guide-section').hidden = true;
+    $('guide-content').replaceChildren();
+    state.demo = null;
+    $('demo-banner').hidden = true;
+    state.interests = new Set([interest]);
+    addConversationMessage('assistant', `关于「${interest}」，你最想做到的一件小事是什么？`);
+    setCompanionPresence('idle');
+  }
+  $('interest-input').value = interest;
+  $('interest-input').removeAttribute('aria-invalid');
+  feedback.textContent = `从「${interest}」开始。下面可以调整顾虑、时间和第一步。`;
+  renderSeeds();
+  document.querySelectorAll('[data-desk-interest]').forEach(button => {
+    const selected = button.dataset.deskInterest === interest;
+    button.classList.toggle('selected', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+  if (previous !== interest || $('starter-workbench').hidden) openStarter(interest, { switchPrepared: previous !== interest });
+  else $('starter-workbench').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  updateUnlock();
+  saveDrafts();
+  return true;
+}
+
+const starter = { id: '', day: '', source: null, interest: '', worry: '怕坚持不下来', minutes: 10, remaining: 600, deadline: 0, timer: null, running: false, started: false, completed: false, completedAt: null, fromGuide: false };
+let learningRecords = null;
 
 function todayKey() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-function readStarterProgress(interest) {
+function readLearningRecords() {
+  if (learningRecords) return learningRecords;
+  let records = [];
+  let imported = false;
   try {
-    const data = JSON.parse(localStorage.getItem(STARTER_PROGRESS_KEY) || '{}');
-    const item = data[interest];
-    return item && item.day === todayKey() ? item : null;
+    const saved = JSON.parse(localStorage.getItem(LEARNING_HISTORY_KEY) || 'null');
+    if (saved?.v === 1 && Array.isArray(saved.records)) {
+      records = saved.records.filter(item => item && typeof item.id === 'string' && typeof item.interest === 'string' && typeof item.task === 'string');
+      imported = saved.legacyImported === true;
+    }
   } catch {
-    return null;
+    // 新历史损坏时仍尝试读取原有任务。
+  }
+  try {
+    const legacy = JSON.parse(localStorage.getItem(STARTER_PROGRESS_KEY) || '{}');
+    for (const [interest, item] of Object.entries(imported ? {} : legacy || {})) {
+      if (!item || typeof item.day !== 'string' || typeof item.task !== 'string') continue;
+      const id = `legacy:${JSON.stringify([interest, item.day])}`;
+      if (records.some(record => record.id === id)) continue;
+      const minutes = [5, 10, 20].includes(item.minutes) ? item.minutes : 10;
+      const remaining = Number.isFinite(item.remaining) ? Math.max(0, Math.min(minutes * 60, item.remaining)) : minutes * 60;
+      records.push({ ...item, id, interest, minutes, remaining,
+        source: { kind: item.fromGuide ? 'legacyGuide' : 'custom' },
+        elapsedSeconds: minutes * 60 - remaining, completedAt: item.completedAt || null });
+    }
+  } catch {
+    // 旧存储原样保留；仍可使用已读取的新历史。
+  }
+  learningRecords = records.slice(-MAX_LEARNING_RECORDS);
+  return learningRecords;
+}
+
+function persistLearningRecords() {
+  learningRecords = readLearningRecords().slice(-MAX_LEARNING_RECORDS);
+  try {
+    localStorage.setItem(LEARNING_HISTORY_KEY, JSON.stringify({ v: 1, legacyImported: true, records: learningRecords }));
+    return true;
+  } catch {
+    state.storageAvailable = false;
+    setStatus('任务记录未能保存，请不要关闭当前页面。', true);
+    return false;
   }
 }
 
+function readStarterProgress(interest) {
+  return readLearningRecords().findLast(item => item.interest === interest && item.day === todayKey()) || null;
+}
+
+function sourceLabel(source) {
+  if (source?.kind === 'week') return `四周手册 · 第 ${source.weekIndex + 1} 周任务（仅本项练习）`;
+  if (source?.kind === 'first') return '四周手册 · 第一课';
+  if (source?.kind === 'legacyGuide') return '旧手册任务（未关联具体课次）';
+  return '自主任务';
+}
+
+function sameSource(left, right) {
+  return left?.kind === right?.kind && left?.guideId === right?.guideId && left?.weekIndex === right?.weekIndex;
+}
+
+function sourcePracticed(source) {
+  return readLearningRecords().some(item => item.completed && sameSource(item.source, source));
+}
+
+function settleStarterClock() {
+  if (starter.running) starter.remaining = Math.max(0, Math.min(starter.minutes * 60, (starter.deadline - Date.now()) / 1000));
+}
+
 function writeStarterProgress() {
-  try {
-    const data = JSON.parse(localStorage.getItem(STARTER_PROGRESS_KEY) || '{}');
-    data[starter.interest] = {
-      day: todayKey(),
-      task: $('starter-task').value.trim(),
-      worry: starter.worry,
-      minutes: starter.minutes,
-      completed: starter.completed,
-      updatedAt: new Date().toISOString()
-    };
-    localStorage.setItem(STARTER_PROGRESS_KEY, JSON.stringify(data));
-  } catch {
-    // The in-memory state remains usable when storage is unavailable.
+  if (!starter.interest) return true;
+  settleStarterClock();
+  const records = readLearningRecords();
+  const previous = records.find(item => item.id === starter.id);
+  starter.id ||= makeUuid();
+  starter.day ||= todayKey();
+  starter.source ||= { kind: 'custom' };
+  const record = { ...previous, id: starter.id, day: starter.day, interest: starter.interest,
+    source: { ...starter.source }, task: $('starter-task').value.trim(), worry: starter.worry,
+    minutes: starter.minutes, remaining: starter.remaining, started: starter.started,
+    completed: starter.completed, completedAt: starter.completedAt,
+    elapsedSeconds: starter.minutes * 60 - starter.remaining,
+    fromGuide: starter.fromGuide, updatedAt: new Date().toISOString() };
+  learningRecords = [...records.filter(item => item.id !== record.id), record];
+  const saved = persistLearningRecords();
+  renderLearningHistory();
+  return saved;
+}
+
+function pauseStarter(message = '已暂停，按你的节奏来') {
+  settleStarterClock();
+  clearInterval(starter.timer);
+  starter.timer = null;
+  starter.running = false;
+  starter.deadline = 0;
+  const saved = writeStarterProgress();
+  $('starter-start').disabled = starter.completed || starter.started && starter.remaining === 0;
+  $('starter-start').textContent = starter.completed ? '本项已完成' : starter.started ? '继续这一小步' : '开始这一小步';
+  $('starter-session-state').textContent = message;
+  updateStarterClock();
+  return saved;
+}
+
+function prepareStarterSwitch(target) {
+  if (!starter.interest) return true;
+  if (starter.completed) {
+    setFocusMode(false);
+    return true;
   }
+  if (!starter.completed && (starter.started || $('starter-task').value.trim())) {
+    const task = $('starter-task').value.trim();
+    if (!window.confirm(`「${starter.interest}」的未完成任务「${task}」将保存为暂停进度，再切换到「${target}」。是否保存后切换？`)) return false;
+  }
+  if (!pauseStarter()) return false;
+  setFocusMode(false);
+  return true;
+}
+
+function renderLearningHistory() {
+  const root = $('learning-history-list');
+  root.replaceChildren();
+  const day = $('learning-history-date').value;
+  const interest = $('learning-history-interest').value.trim();
+  const records = [...readLearningRecords()].reverse().filter(item => (!day || item.day === day) && (!interest || item.interest.includes(interest)));
+  if (!records.length) root.append(el('p', 'source-note', '还没有符合条件的学习记录。'));
+  records.forEach(item => {
+    const row = el('article', 'guide-card');
+    row.append(el('h3', '', `${item.day} · ${item.interest} · ${item.completed ? '已完成' : item.id === starter.id && starter.running ? '进行中' : item.started ? '已暂停' : '待开始'}`),
+      el('p', '', item.task), el('p', 'source-note', `${sourceLabel(item.source)} · 实际用时 ${Math.round((item.elapsedSeconds || 0) * 10) / 10} 秒${item.completedAt ? ` · 完成于 ${new Date(item.completedAt).toLocaleString('zh-CN')}` : item.completed ? ' · 旧记录未保存完成时间' : ''}`));
+    const action = el('button', 'quiet-button', item.completed ? '带入一次复盘草稿' : '恢复这项任务');
+    action.type = 'button';
+    action.disabled = item.id === starter.id && !item.completed;
+    action.addEventListener('click', () => {
+      if (!item.completed) {
+        openStarter(item.interest, { recordId: item.id });
+        return;
+      }
+      if ($('chat-input').disabled) { setStatus('学伴正在生成手册，结束后可带入复盘。'); return; }
+      if ($('chat-input').value.trim() && !window.confirm('聊天输入框已有草稿，是否替换为这次练习的复盘草稿？')) return;
+      if ([...state.interests][0] !== item.interest && !selectInterest(item.interest)) return;
+      $('chat-input').value = `请陪我复盘 ${item.day} 的「${item.interest}」练习：${item.task}。来源：${sourceLabel(item.source)}，实际用时 ${Math.round((item.elapsedSeconds || 0) * 10) / 10} 秒。我完成了什么、哪里卡住、下一步如何调整？`.slice(0, 500);
+      $('input-count').textContent = `${$('chat-input').value.length} / 500`;
+      saveDrafts();
+      $('chat-input').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      $('chat-input').focus({ preventScroll: true });
+      setStatus('复盘草稿已带入输入框，确认后可发送。');
+    });
+    row.append(action);
+    root.append(row);
+  });
 }
 const STARTER_TASKS = {
   '钢琴': '听一段你喜欢的钢琴旋律，选出最想学会的十秒钟，写下曲名。',
@@ -283,8 +567,9 @@ function renderStarterOptions() {
       const button = el('button', 'starter-option', key === 'minutes' ? `${value} 分钟` : value);
       button.type = 'button';
       button.setAttribute('aria-pressed', String(starter[key] === value));
-      button.disabled = starter.started;
+      button.disabled = starter.started || starter.completed;
       button.addEventListener('click', () => {
+        if (starter.started || starter.completed) return;
         starter[key] = value;
         if (key === 'minutes') starter.remaining = value * 60;
         writeStarterProgress();
@@ -303,7 +588,8 @@ function updateStarterNote() {
     '担心年龄太晚': '从自己的起点开始，今天只和开始前的自己比。',
     '没装备和基础': '这一步优先用手边已有的东西，不急着购买设备。'
   };
-  $('starter-task-note').textContent = `${notes[starter.worry]} 以上为可修改的预设建议。`;
+  const origin = starter.fromGuide ? `来源：${sourceLabel(starter.source)}。` : Object.hasOwn(STARTER_TASKS, starter.interest) ? '这是可修改的预设建议。' : '这是通用起步建议；和学伴聊聊，可以进一步细化。';
+  $('starter-task-note').textContent = `${notes[starter.worry] || ''} ${origin}`;
 }
 
 function updateStarterClock() {
@@ -316,25 +602,44 @@ function updateStarterClock() {
 }
 
 function openStarter(interest, options = {}) {
+  const records = readLearningRecords();
+  const saved = options.recordId ? records.find(item => item.id === options.recordId)
+    : options.fresh ? null
+      : options.source ? records.findLast(item => item.interest === interest && sameSource(item.source, options.source) && !item.completed)
+        : readStarterProgress(interest);
+  if (options.recordId && !saved) return false;
+  if (saved?.id === starter.id && starter.interest) {
+    $('starter-workbench').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return true;
+  }
+  if (!options.switchPrepared && !prepareStarterSwitch(options.task || interest)) return false;
   clearInterval(starter.timer);
-  const saved = readStarterProgress(interest);
-  const minutes = Number.isFinite(saved?.minutes) ? saved.minutes : starter.minutes;
+  const minutes = [5, 10, 20].includes(saved?.minutes) ? saved.minutes : starter.minutes;
   const worry = saved?.worry || starter.worry;
-  Object.assign(starter, { interest, minutes, worry, remaining: minutes * 60, running: false, started: false, completed: saved?.completed === true, fromGuide: options.fromGuide === true });
+  const source = saved?.source || options.source || { kind: 'custom' };
+  const fromGuide = source.kind !== 'custom';
+  const started = saved?.started === true && saved.completed !== true;
+  const remaining = Number.isFinite(saved?.remaining) ? Math.max(0, Math.min(minutes * 60, saved.remaining)) : minutes * 60;
+  Object.assign(starter, { id: saved?.id || makeUuid(), day: saved?.day || todayKey(), source, interest, minutes, worry, remaining,
+    deadline: 0, timer: null, running: false, started, completed: saved?.completed === true, completedAt: saved?.completedAt || null, fromGuide });
   $('starter-workbench').hidden = false;
   $('starter-title').textContent = `想学${interest}，先从这一小步试试`;
-  $('starter-task').value = saved?.task || STARTER_TASKS[interest];
-  $('starter-task').disabled = starter.completed;
-  $('starter-start').disabled = starter.completed;
-  $('starter-start').textContent = starter.completed ? '今天已完成' : '开始这一小步';
-  $('starter-complete').disabled = true;
+  const suggested = Object.hasOwn(STARTER_TASKS, interest) ? STARTER_TASKS[interest] : `为「${interest}」写下一个最想做到的小目标，再列出手边已有的条件和一个想问的问题。`;
+  $('starter-task').value = text(saved?.task || options.task || suggested).slice(0, 2000);
+  $('starter-task').disabled = starter.completed || starter.started;
+  $('starter-start').disabled = starter.completed || starter.started && starter.remaining === 0;
+  $('starter-start').textContent = starter.completed ? '本项已完成' : starter.started ? '继续这一小步' : '开始这一小步';
+  $('starter-complete').disabled = !starter.started || starter.completed;
+  $('starter-next').hidden = !starter.completed;
   $('starter-achievement').textContent = starter.completed ? `今天已经为${interest}留下了一个真实的开始。` : '';
   $('starter-achievement').hidden = !starter.completed;
-  $('starter-session-state').textContent = starter.completed ? '今天已完成，明天再来继续' : '由你决定何时开始';
+  $('starter-session-state').textContent = starter.completed ? '本项已完成，可以继续另一项任务' : starter.started ? (starter.remaining === 0 ? '时间到了，确认完成后留下记录' : '已恢复暂停进度，点击继续；离开页面期间未计时') : '由你决定何时开始';
   renderStarterOptions();
   updateStarterNote();
   updateStarterClock();
+  writeStarterProgress();
   $('starter-workbench').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  return true;
 }
 
 function setFocusMode(active) {
@@ -353,16 +658,16 @@ function resetStarter() {
 }
 
 function setupStarter() {
+  $('learning-history-date').addEventListener('input', renderLearningHistory);
+  $('learning-history-interest').addEventListener('input', renderLearningHistory);
+  $('starter-next').addEventListener('click', () => openStarter(starter.interest, { fresh: true }));
+  renderLearningHistory();
   $('starter-exit-focus').addEventListener('click', () => setFocusMode(false));
   $('starter-start').addEventListener('click', () => {
+    if (starter.completed || starter.started && starter.remaining === 0) return;
     if (!$('starter-task').value.trim()) { $('starter-task').focus(); return; }
     if (starter.running) {
-      starter.remaining = Math.max(0, (starter.deadline - Date.now()) / 1000);
-      clearInterval(starter.timer);
-      starter.running = false;
-      writeStarterProgress();
-      $('starter-start').textContent = '继续这一小步';
-      $('starter-session-state').textContent = '已暂停，按你的节奏来';
+      pauseStarter();
     } else {
       setFocusMode(true);
       starter.started = true;
@@ -380,6 +685,7 @@ function setupStarter() {
         if (starter.remaining === 0) {
           clearInterval(starter.timer);
           starter.running = false;
+          writeStarterProgress();
           $('starter-start').disabled = true;
           $('starter-session-state').textContent = '时间到了，做到了多少都可以';
         }
@@ -388,27 +694,33 @@ function setupStarter() {
     updateStarterClock();
   });
   $('starter-complete').addEventListener('click', () => {
+    if (!starter.started || starter.completed) return;
+    settleStarterClock();
     clearInterval(starter.timer);
     starter.running = false;
+    starter.deadline = 0;
     starter.completed = true;
+    starter.completedAt = new Date().toISOString();
     $('starter-start').disabled = true;
+    $('starter-start').textContent = '本项已完成';
     $('starter-complete').disabled = true;
-    $('starter-achievement').textContent = `第一步，已完成。你今天为${starter.interest}留下了一个真实的开始。`;
+    $('starter-next').hidden = false;
+    renderStarterOptions();
+    $('starter-achievement').textContent = `本项任务已完成。你为${starter.interest}留下了一次真实练习。`;
     writeStarterProgress();
+    updateStarterClock();
     $('starter-achievement').hidden = false;
-    if (starter.fromGuide) {
-      const action = document.querySelector('.first-lesson-action .primary-button');
-      if (action) { action.textContent = '今天已完成'; action.disabled = true; }
-      $('learning-steps').lastElementChild?.classList.add('completed');
-    }
+    if (state.guide) renderGuide(state.guide, state.searchMeta || { results: [] }, { restoring: true });
+    updateLearningSteps();
     setCompanionPresence('complete');
     setFocusMode(false);
-    $('starter-session-state').textContent = '今天的开始，已由你亲手完成';
+    $('starter-session-state').textContent = '本项已完成，可以继续另一项任务';
   });
   $('starter-task').addEventListener('input', writeStarterProgress);
   $('starter-chat').addEventListener('click', () => {
     $('chat-input').value = `我想学${starter.interest}，但${starter.worry}。今天能留出${starter.minutes}分钟。我的第一步想做：${$('starter-task').value.trim()}`.slice(0, 500);
     $('input-count').textContent = `${$('chat-input').value.length} / 500`;
+    saveDrafts();
     $('chat-input').scrollIntoView({ behavior: 'smooth', block: 'center' });
     $('chat-input').focus({ preventScroll: true });
     setStatus('已把你的选择带入对话，确认后发送给学伴。');
@@ -448,20 +760,30 @@ function appendMessage(role, content, options = {}) {
 }
 
 function addConversationMessage(role, content, options = {}) {
-  state.messages.push({ role, content });
+  state.messages.push({ id: makeUuid(), role, content, status: 'success', demo: options.demo === true });
   const rendered = appendMessage(role, content, options);
   updateUnlock();
+  saveSession();
   return rendered;
 }
 
-function addRetryButton(message, content, options = {}) {
+function addRetryButton(message, item) {
   if (message.querySelector('.retry-button')) return;
   const retry = el('button', 'retry-button', '重试这条回应');
   retry.type = 'button';
-  retry.addEventListener('click', () => {
-    if (state.busy || state.generating) return;
-    message.remove();
-    void sendChatMessage(content, { ...options, skipUserMessage: true });
+  retry.addEventListener('click', async () => {
+    if (state.busy || state.generating || state.demoRunning) return;
+    if (!state.messages.slice(state.topicStart).includes(item)) {
+      setStatus('这条消息属于之前的兴趣，请在当前兴趣下重新发送。', true);
+      return;
+    }
+    if (!state.consented) {
+      state.pendingFirstMessage = item.content;
+      state.pendingChatOptions = { retryMessage: item, failureMessage: message };
+      $('consent-dialog').showModal();
+      return;
+    }
+    await sendChatMessage(item.content, { retryMessage: item, failureMessage: message });
   });
   message.querySelector('.message-body')?.append(retry);
 }
@@ -470,7 +792,7 @@ function updateLearningSteps() {
   const activeIndex = state.guide ? 3 : state.userTurns >= 2 ? 2 : state.userTurns >= 1 ? 1 : 0;
   [...$('learning-steps').children].forEach((item, index) => {
     item.classList.toggle('active', index === activeIndex);
-    item.classList.toggle('completed', index < activeIndex);
+    item.classList.toggle('completed', index < activeIndex || index === 3 && !!state.guide && sourcePracticed({ kind: 'first', guideId: ensureGuideId(state.guide) }));
     if (index === activeIndex) item.setAttribute('aria-current', 'step');
     else item.removeAttribute('aria-current');
   });
@@ -493,6 +815,7 @@ function initialGreeting() {
 function setBusy(busy, label = '') {
   state.busy = busy;
   $('send-message').disabled = busy || state.generating;
+  $('model-select').disabled = busy || state.generating || !state.model;
   $('chat-input').disabled = state.generating;
   $('cancel-request').hidden = !busy && !state.generating && !state.demoRunning;
   if (label) setStatus(label);
@@ -500,6 +823,19 @@ function setBusy(busy, label = '') {
 }
 
 function abortActive(message = '') {
+  stopRecognition();
+  stopSpeech();
+  if (state.activeChat) {
+    const { item, placeholder } = state.activeChat;
+    item.status = 'interrupted';
+    item.error = '回应已取消，可以重试。';
+    placeholder.message.classList.remove('loading');
+    placeholder.copy.textContent = `${item.partial ? `${item.partial}（未完成）\n` : ''}${item.error}`;
+    addRetryButton(placeholder.message, item);
+    state.activeChat = null;
+    state.activePlaceholder = null;
+  }
+  if (state.generating) state.guideStatus = 'interrupted';
   state.serial += 1;
   state.demoToken += 1;
   state.controller?.abort();
@@ -510,19 +846,40 @@ function abortActive(message = '') {
   state.busy = false;
   state.generating = false;
   state.demoRunning = false;
-  window.speechSynthesis?.cancel?.();
   $('cancel-request').hidden = true;
   $('chat-input').disabled = false;
   $('send-message').disabled = false;
+  $('model-select').disabled = !state.model;
   updateUnlock();
+  saveSession();
   if (message) setStatus(message);
 }
 
 function newConversation(options = {}) {
   abortActive();
+  if (starter.interest) pauseStarter();
   resetStarter();
+  Object.assign(starter, { interest: '', id: '', day: '', source: null, completedAt: null });
+  renderLearningHistory();
+  state.sessionActive = false;
+  state.restored = false;
+  try {
+    localStorage.removeItem(SESSION_KEY);
+    state.storageAvailable = true;
+  } catch {
+    state.storageAvailable = false;
+  }
+  $('chat-input').value = '';
+  $('input-count').textContent = '0 / 500';
+  state.pendingFirstMessage = '';
+  state.pendingChatOptions = null;
+  state.pendingDemo = null;
   $('starter-workbench').hidden = true;
   state.messages = [];
+  state.topicStart = 0;
+  $('interest-input').value = options.interest || '';
+  $('interest-input').removeAttribute('aria-invalid');
+  $('interest-feedback').textContent = '';
   state.userTurns = 0;
   state.conversationId = makeUuid();
   const guideAction = document.querySelector('.first-lesson-action .primary-button');
@@ -530,6 +887,7 @@ function newConversation(options = {}) {
   $('learning-steps').lastElementChild?.classList.remove('completed');
   state.guide = null;
   state.searchMeta = null;
+  state.guideStatus = 'idle';
   state.demo = options.demo || null;
   state.interests = new Set(options.interest ? [options.interest] : []);
   $('chat-log').replaceChildren();
@@ -540,11 +898,21 @@ function newConversation(options = {}) {
   if (state.demo) $('demo-banner-text').textContent = `${state.demo.title}，内容将由真实模型回应。`;
   renderSeeds();
   if (!options.skipGreeting) initialGreeting();
-  setStatus(state.demo ? '正在回放演示，模型回应和手册均为实时生成。' : '新会话已开始。');
+  document.querySelectorAll('[data-desk-interest]').forEach(button => {
+    const selected = state.interests.has(button.dataset.deskInterest);
+    button.classList.toggle('selected', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+  if (options.demo || options.interest) saveDrafts();
+  updateUnlock();
+  setStatus(state.demo ? '正在回放演示，模型回应和手册均为实时生成。' : '已清除保存的会话、手册和草稿；本地任务进度保留。');
 }
 
-function boundedMessages() {
-  return state.messages.slice(-20).map(item => ({ role: item.role, content: item.content }));
+function boundedMessages(through = null) {
+  const end = through ? state.messages.indexOf(through) + 1 : state.messages.length;
+  return state.messages.slice(state.topicStart, end)
+    .filter(item => item.status === 'success' || item === through)
+    .slice(-20).map(item => ({ role: item.role, content: item.content }));
 }
 
 function companionSystem(extra = '') {
@@ -552,7 +920,12 @@ function companionSystem(extra = '') {
   return `你是中文学习伙伴“${state.companion.name}”。你的风格是：${STYLES[state.companion.style].prompt}。${title}。你帮助成年人把想学的事变成可开始的小步。不得编造用户经历、案例、研究、课程或来源；不确定就明确说不确定。每次只问一个问题，回复不超过60个汉字，避免空泛鼓励。游泳相关绝不建议独自下水，也不建议任何憋气练习。${extra}`;
 }
 
+function throwIfAborted(signal) {
+  if (signal?.aborted) throw new DOMException('请求已取消', 'AbortError');
+}
+
 async function streamCompletion({ system, messages, signal, json = false, timeout = 60000, onDelta }) {
+  throwIfAborted(signal);
   if (!state.sdk || !state.model) throw new Error('模型尚未就绪');
   const local = new AbortController();
   const abort = () => local.abort();
@@ -568,25 +941,38 @@ async function streamCompletion({ system, messages, signal, json = false, timeou
   };
   if (json) request.response_format = { type: 'json_object' };
   let output = '';
+  let finishReason = null;
   try {
-    const stream = state.sdk.llm.chat.completions.create(request);
-    try {
-      for await (const chunk of stream) {
-        if (local.signal.aborted) throw new DOMException(timedOut ? '请求超过 60 秒，已超时' : '请求已取消', 'AbortError');
-        const delta = chunk?.choices?.[0]?.delta?.content;
-        if (typeof delta === 'string') {
-          output += delta;
-          onDelta?.(output, delta);
-        }
+    throwIfAborted(signal);
+    const stream = await state.sdk.llm.chat.completions.create(request);
+    for await (const chunk of stream) {
+      throwIfAborted(local.signal);
+      const choice = chunk?.choices?.[0];
+      if (chunk?.error) throw new Error(text(chunk.error.message) || '模型流返回错误');
+      if (choice?.delta?.refusal || choice?.message?.refusal || choice?.finish_reason === 'refusal') {
+        throw new Error('模型拒绝了这次请求，请调整内容后重试');
       }
-    } catch (error) {
-      if (timedOut) throw new Error('请求超过 60 秒，已超时');
-      throw error;
+      if (choice?.finish_reason) finishReason = choice.finish_reason;
+      if (finishReason === 'length') throw new Error('模型回应达到长度限制，未完成，请重试');
+      if (finishReason === 'content_filter') throw new Error('模型回应被内容过滤，未完成，请调整内容后重试');
+      const delta = choice?.delta?.content;
+      if (typeof delta === 'string') {
+        output += delta;
+        onDelta?.(output, delta);
+      }
     }
+    throwIfAborted(local.signal);
+    if (finishReason && finishReason !== 'stop') throw new Error(`模型回应未正常完成（${finishReason}）`);
+    if (!output.trim()) throw new Error('模型返回了空回应，请重试');
     return output.trim();
+  } catch (error) {
+    if (timedOut) throw new Error(`请求超过 ${Math.ceil(timeout / 1000)} 秒，已超时`);
+    throwIfAborted(signal);
+    throw error;
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', abort);
+    local.abort();
   }
 }
 
@@ -594,7 +980,7 @@ function normalizeChatReply(value) {
   let clean = text(value).replace(/```[\s\S]*?```/g, '').replace(/\s+/g, ' ').trim();
   const firstQuestion = clean.search(/[？?]/);
   if (firstQuestion >= 0) clean = clean.slice(0, firstQuestion + 1);
-  return clean.slice(0, 60) || '你希望从哪一个最小的动作开始？';
+  return clean;
 }
 
 async function sendChatMessage(value, options = {}) {
@@ -604,40 +990,63 @@ async function sendChatMessage(value, options = {}) {
     setStatus('模型暂不可用，内容已保留，请稍后再试。', true);
     return false;
   }
-  const serial = ++state.serial;
   const controller = options.controller || new AbortController();
+  if (controller.signal.aborted) return false;
+  const item = options.retryMessage || { id: makeUuid(), role: 'user', content, demo: options.demo === true };
+  if (options.retryMessage && (!state.messages.slice(state.topicStart).includes(item) || item.status === 'success')) return false;
+  stopRecognition();
+  const serial = ++state.serial;
   state.controller = controller;
-  if (!options.skipUserMessage) {
+  if (!options.retryMessage) {
     appendMessage('user', content, { demo: options.demo });
-    state.messages.push({ role: 'user', content });
+    state.messages.push(item);
   }
-  $('chat-input').value = '';
-  $('input-count').textContent = '0 / 500';
+  Object.assign(item, { status: 'pending', error: '', partial: '' });
+  if (!options.retryMessage && !options.demo) {
+    $('chat-input').value = '';
+    $('input-count').textContent = '0 / 500';
+  }
+  options.failureMessage?.remove();
+  state.sessionActive = true;
+  saveSession();
   setBusy(true, `${state.companion.name}正在想一个问题…`);
   setCompanionPresence('listening');
   const placeholder = appendMessage('assistant', '正在回应', { loading: true, demo: options.demo });
   state.activePlaceholder = placeholder.message;
+  state.activeChat = { item, placeholder };
   let streamed = '';
   try {
-    const history = boundedMessages();
+    const history = boundedMessages(item);
     const raw = await streamCompletion({
-      system: companionSystem(),
-      messages: history,
+      system: companionSystem('学习愿望在普通用户资料消息中提供。兴趣不限于预设类别，保留用户的具体表达；含糊时先澄清，不擅自归到其他兴趣。'),
+      messages: [{ role: 'user', content: `用户资料：${JSON.stringify({ selected_interests: [...state.interests] })}` }, ...history],
       signal: controller.signal,
       timeout: 60000,
       onDelta: output => {
+        if (serial !== state.serial) return;
         streamed = output;
-        placeholder.copy.textContent = normalizeChatReply(output);
+        item.partial = normalizeChatReply(output);
+        placeholder.copy.textContent = item.partial || '正在回应';
       }
     });
-    if (serial !== state.serial) return;
+    if (serial !== state.serial) return false;
+    throwIfAborted(controller.signal);
     const reply = normalizeChatReply(raw);
+    if (!reply) throw new Error('模型未返回可显示的回应，请重试');
     setCompanionPresence('responding');
     placeholder.copy.textContent = reply;
     placeholder.message.classList.remove('loading');
     state.activePlaceholder = null;
-    state.messages.push({ role: 'assistant', content: reply });
+    state.activeChat = null;
+    Object.assign(item, { status: 'success', error: '', partial: '' });
+    const index = state.messages.indexOf(item);
+    state.messages.splice(index + 1, 0, { id: makeUuid(), role: 'assistant', content: reply, status: 'success', demo: item.demo });
     state.userTurns += 1;
+    saveSession();
+    if (options.retryMessage) {
+      $('chat-log').replaceChildren();
+      state.messages.forEach(renderSavedMessage);
+    }
     updateUnlock();
     setCompanionPresence('idle');
     setStatus(state.userTurns >= 3 ? '已经聊了三轮，可以展开开始手册。' : `再聊 ${3 - state.userTurns} 轮，就能展开开始手册。`);
@@ -648,25 +1057,14 @@ async function sendChatMessage(value, options = {}) {
     placeholder.message.classList.remove('loading');
     state.activePlaceholder = null;
     setCompanionPresence('idle');
-    if (error.name === 'AbortError') {
-      if (streamed) {
-        const partial = normalizeChatReply(streamed);
-        placeholder.copy.textContent = `${partial}（回应已中止）`;
-        state.messages.push({ role: 'assistant', content: partial });
-      } else {
-        placeholder.message.remove();
-      }
-      setStatus('已取消回应，你发送的内容仍然保留。');
-    } else {
-      if (streamed) {
-        const partial = normalizeChatReply(streamed);
-        placeholder.copy.textContent = `${partial}（网络中断）`;
-      } else {
-        placeholder.copy.textContent = '网络暂时没有回应。你刚才说的话已经保留。';
-      }
-      addRetryButton(placeholder.message, content, { demo: options.demo });
-      setStatus(`网络错误：${error.message}。可以点击消息下方重试。`, true);
-    }
+    state.activeChat = null;
+    item.status = error.name === 'AbortError' ? 'interrupted' : 'failed';
+    item.partial = normalizeChatReply(streamed);
+    item.error = error.name === 'AbortError' ? '回应已取消，可以重试。' : `回应未完成：${modelErrorMessage(error)}`;
+    placeholder.copy.textContent = `${item.partial ? `${item.partial}（未完成）\n` : ''}${item.error}`;
+    addRetryButton(placeholder.message, item);
+    saveSession();
+    setStatus(`${item.error} 你发送的内容仍然保留，可以点击消息下方重试。`, error.name !== 'AbortError');
     return false;
   } finally {
     if (serial === state.serial) {
@@ -691,6 +1089,7 @@ function parseModelJson(raw) {
 async function modelJson(system, payload, signal, retries = 1) {
   let lastError;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
+    throwIfAborted(signal);
     try {
       const raw = await streamCompletion({
         system,
@@ -699,16 +1098,19 @@ async function modelJson(system, payload, signal, retries = 1) {
         json: true,
         timeout: 60000
       });
+      throwIfAborted(signal);
       return parseModelJson(raw);
     } catch (error) {
+      throwIfAborted(signal);
       lastError = error;
-      if (error.name === 'AbortError' || attempt >= retries) throw error;
+      if (error.name === 'AbortError' || !(error instanceof SyntaxError) || attempt >= retries) throw error;
     }
   }
   throw lastError;
 }
 
 async function postJson(url, body, signal) {
+  throwIfAborted(signal);
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener('abort', abort, { once: true });
@@ -723,10 +1125,16 @@ async function postJson(url, body, signal) {
     });
     let data = {};
     try { data = await response.json(); } catch { /* Preserve caller content on malformed network responses. */ }
-    if (!response.ok) throw new Error(text(data.error) || `请求失败（${response.status}）`);
+    throwIfAborted(controller.signal);
+    if (!response.ok) {
+      const error = new Error(text(data.error || data.note) || `请求失败（${response.status}）`);
+      error.status = response.status;
+      throw error;
+    }
     return data;
   } catch (error) {
     if (timedOut) throw new Error('请求超过 60 秒，已超时');
+    throwIfAborted(signal);
     throw error;
   } finally {
     clearTimeout(timer);
@@ -747,35 +1155,19 @@ function guideSystem() {
   return structuredSystem('这次只编写开始手册，不向用户提问。只返回JSON对象，字段严格为title、story、goal、worry、answer、examples、resources、plan、first_lesson、share_text。examples为字符串数组；resources为对象数组，每项只有name、desc、url，且URL只能选用输入search_results中存在的值；plan为恰好4项的对象数组，每项含week、goal、task。内容务实。若search_results为空，resources必须为空，并明确不声称联网查证。游泳计划只能在正规场所、有救生员或教练陪同下进行。');
 }
 
-function enforceSwimmingSafety(result, interest) {
-  if (!text(interest).includes('游泳')) return result;
-  const replaceUnsafe = value => {
-    if (typeof value === 'string') {
-      return value
-        .replace(/独自下水/g, '在正规泳馆由教练或救生员陪同下水')
-        .replace(/一个人下水/g, '在正规泳馆由教练或救生员陪同下水')
-        .replace(/憋气训练/g, '水上安全与正常呼吸练习')
-        .replace(/练习憋气/g, '练习放松与正常呼吸');
-    }
-    if (Array.isArray(value)) return value.map(replaceUnsafe);
-    if (value && typeof value === 'object') {
-      Object.keys(value).forEach(key => { value[key] = replaceUnsafe(value[key]); });
-    }
-    return value;
-  };
-  return replaceUnsafe(result);
-}
-
 async function generateGuide() {
   if (state.userTurns < 3 || state.generating || state.busy) return;
   if (!state.model) {
     setStatus('模型暂不可用，当前对话已保留。', true);
     return;
   }
+  stopRecognition();
   const serial = ++state.serial;
   const controller = new AbortController();
   state.controller = controller;
   state.generating = true;
+  state.guideStatus = 'generating';
+  saveSession();
   setBusy(true, '正在读懂你的兴趣与顾虑…');
   updateUnlock();
   const conversation = boundedMessages();
@@ -785,14 +1177,20 @@ async function generateGuide() {
   try {
     extracted = await modelJson(extractionSystem(), { selected_interests: [...state.interests], conversation }, controller.signal, 1);
     if (serial !== state.serial) return;
-    const queries = asArray(extracted.search_queries).map(text).filter(Boolean).slice(0, 3);
+    if (!extracted || typeof extracted !== 'object' || Array.isArray(extracted)) throw new Error('学习愿望提取不完整，请重试');
+    extracted.interest = [...state.interests][0] || text(extracted.interest).trim().slice(0, 80);
+    if (!extracted.interest) throw new Error('还没有明确想学的事，请先和学伴聊清楚');
+    const queries = asArray(extracted.search_queries).filter(value => typeof value === 'string').map(value => value.trim().slice(0, 160)).filter(Boolean).slice(0, 3);
     while (queries.length < 3) queries.push(`${text(extracted.interest) || [...state.interests][0] || '成人学习'} 入门`);
-    setStatus('正在寻找可参考的公开搜索来源…');
+    setStatus('正在检查公开搜索服务是否可用…');
     try {
-      const searched = await postJson('/api/search', { queries }, controller.signal);
+      const searched = await postJson('/api/search', { queries, interest: extracted.interest }, controller.signal);
       searchData = {
         results: asArray(searched.results).slice(0, 12),
         configured: searched.configured === true,
+        searchId: text(searched.searchId),
+        provider: text(searched.provider),
+        scope: text(searched.scope),
         note: text(searched.note)
       };
     } catch (error) {
@@ -800,7 +1198,7 @@ async function generateGuide() {
       searchData = { results: [], configured: false, note: `搜索失败：${error.message}` };
     }
     if (serial !== state.serial) return;
-    setStatus('正在把对话和搜索结果整理成四周手册…');
+    setStatus(searchData.configured ? '正在把对话和搜索来源整理成四周手册…' : '搜索未接通，正在仅根据对话生成四周建议；不作联网查证…');
     generated = await modelJson(guideSystem(), {
       companion: state.companion,
       selected_interests: [...state.interests],
@@ -808,24 +1206,28 @@ async function generateGuide() {
       conversation,
       search_results: searchData.results.map(item => ({ title: text(item.title), url: safeUrl(item.url), snippet: text(item.snippet) }))
     }, controller.signal, 1);
-    generated = enforceSwimmingSafety(generated, extracted.interest);
     if (serial !== state.serial) return;
     setStatus('正在检查手册结构与来源链接…');
     let finalResult;
     try {
-      const validated = await postJson('/api/validate-result', { result: generated, results: searchData.results }, controller.signal);
-      finalResult = validated.result || validated;
+      const validated = await postJson('/api/validate-result', { result: generated, interest: extracted.interest, searchId: searchData.searchId }, controller.signal);
+      finalResult = validated.result;
+      if (!finalResult || typeof finalResult !== 'object' || !Array.isArray(finalResult.plan4) || finalResult.plan4.length !== 4) throw new Error('服务器未返回完整四周手册');
     } catch (error) {
       if (error.name === 'AbortError') throw error;
       throw new Error(`来源校验未完成：${error.message}`);
     }
     if (serial !== state.serial) return;
-    state.guide = { ...enforceSwimmingSafety(finalResult, extracted.interest), interest: text(extracted.interest || [...state.interests][0]) };
+    state.guide = { ...finalResult, id: makeUuid(), interest: text(extracted.interest || [...state.interests][0]) };
     state.searchMeta = searchData;
+    state.guideStatus = 'complete';
+    saveSession();
     renderGuide(state.guide, searchData);
     setStatus('开始手册已展开。它不是期限，只是一条可以调整的路。');
   } catch (error) {
     if (serial !== state.serial) return;
+    state.guideStatus = error.name === 'AbortError' ? 'interrupted' : 'failed';
+    saveSession();
     if (error.name === 'AbortError') setStatus('已取消生成，对话内容仍然保留。');
     else setStatus(`手册暂未生成：${error.message}。对话内容仍然保留，可再次尝试。`, true);
   } finally {
@@ -858,7 +1260,28 @@ function appendTextCard(root, className, title, value) {
   root.append(card);
 }
 
-function renderGuide(result, searchData) {
+function ensureGuideId(result) {
+  if (typeof result.id !== 'string' || !result.id) result.id = makeUuid();
+  return result.id;
+}
+
+function guideTaskButton(source, task, interest) {
+  const completed = readLearningRecords().filter(item => item.interest === interest && item.completed && sameSource(item.source, source));
+  const latest = completed.at(-1);
+  const button = el('button', 'primary-button', latest
+    ? `累计已练习 ${completed.length} 次 · 最近完成：${latest.completedAt ? new Date(latest.completedAt).toLocaleString('zh-CN') : latest.day} · 再次练习`
+    : '带入今日任务');
+  button.type = 'button';
+  button.addEventListener('click', () => {
+    const unfinished = readLearningRecords().some(item => item.interest === interest && !item.completed && sameSource(item.source, source));
+    openStarter(interest, { fresh: !unfinished, source, task });
+  });
+  return button;
+}
+
+function renderGuide(result, searchData, options = {}) {
+  const guideId = ensureGuideId(result);
+  const interest = text(result.interest || [...state.interests][0] || '兴趣');
   const section = $('guide-section');
   const root = $('guide-content');
   root.replaceChildren();
@@ -869,7 +1292,7 @@ function renderGuide(result, searchData) {
   appendTextCard(grid, 'goal', '你真正想抵达的地方', result.goal);
   appendTextCard(grid, 'worry', '最牵绊你的事', result.worry);
   appendTextCard(grid, 'answer', `${state.companion.name}的回应`, result.answer);
-  appendListCard(grid, 'examples', '可以借鉴的做法', result.examples);
+  if (asArray(result.examples).length) appendListCard(grid, 'examples', '可以借鉴的做法', result.examples);
 
   const resourceCard = el('article', 'guide-card resources');
   resourceCard.append(el('h3', '', '搜索来源'));
@@ -882,10 +1305,10 @@ function renderGuide(result, searchData) {
       link.href = safeUrl(item.url);
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      link.append(el('strong', '', text(item.name || item.title) || '查看来源'), el('span', '', text(item.desc || item.reason)));
+      link.append(el('strong', '', text(item.name || item.title) || '查看来源'), el('span', '', text(item.snippet || item.desc || item.reason)));
       resourceList.append(link);
     });
-    resourceCard.append(resourceList, el('p', 'source-note', '以上为搜索来源，不等于真实性核验；请自行判断内容与安全性。'));
+    resourceCard.append(resourceList, el('p', 'source-note', searchData.scope || '公开知识页面参考'), el('p', 'source-note', '以上为检索到的阅读来源，不代表课程推荐或事实核验。'));
   } else {
     resourceCard.append(el('p', '', '未检索到可用搜索来源，本手册未作联网查证。'));
     if (searchData.note) resourceCard.append(el('p', 'source-note', searchData.note));
@@ -902,7 +1325,9 @@ function renderGuide(result, searchData) {
     const summary = el('summary');
     summary.append(el('span', 'week-number', `WEEK ${String(index + 1).padStart(2, '0')}`), el('strong', '', text(week.goal || week.title) || `第 ${index + 1} 周`));
     const task = text(week.task || week.action) || '根据这一周的感受，调整下一小步。';
-    details.append(summary, el('div', 'week-content', task));
+    const content = el('div', 'week-content');
+    content.append(el('p', '', task), guideTaskButton({ kind: 'week', guideId, weekIndex: index }, task, interest));
+    details.append(summary, content);
     manual.append(details);
   }
   root.append(manual);
@@ -911,30 +1336,30 @@ function renderGuide(result, searchData) {
   const firstCopy = el('div', 'first-lesson-copy');
   firstCopy.append(el('span', '', '今天的第一课'), el('p', '', text(result.first_lesson) || '用十分钟，把第一步放进今天。'));
   const firstAction = el('div', 'first-lesson-action');
-  const startToday = el('button', 'primary-button', '带入今天的任务');
-  startToday.type = 'button';
-  startToday.addEventListener('click', () => {
-    const interest = text(result.interest || [...state.interests][0] || '兴趣');
-    openStarter(interest, { fromGuide: true });
-    $('starter-task').value = text(result.first_lesson) || $('starter-task').value;
-    $('starter-task-note').textContent = '这一步来自你的开始手册，可以继续改成更适合今天的版本。';
-    $('starter-workbench').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
+  const startToday = guideTaskButton({ kind: 'first', guideId }, text(result.first_lesson).trim() || '用十分钟，把第一步放进今天。', interest);
   firstAction.append(startToday);
   first.append(firstCopy, firstAction);
   root.append(first);
   if (result.share_text) root.append(el('div', 'share-copy', text(result.share_text)));
   section.hidden = false;
-  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  updateLearningSteps();
+  saveSession();
+  if (!options.restoring) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function sleep(ms, signal) {
+  throwIfAborted(signal);
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener('abort', () => {
+    const abort = () => {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
       reject(new DOMException('演示已取消', 'AbortError'));
-    }, { once: true });
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', abort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', abort, { once: true });
   });
 }
 
@@ -1044,6 +1469,7 @@ function saveCompanion(event) {
   });
   writeCompanion(state.companion);
   updateCompanionUi();
+  stopSpeech();
   $('companion-dialog').close();
   setStatus(`设置已更新，已有对话保留，${name}的名字立即生效。`);
 }
@@ -1063,6 +1489,40 @@ function trapDialogFocus(dialog, event) {
   }
 }
 
+let avatarController = null;
+
+function setupAvatar() {
+  if (!window.BuwanAvatar?.createController) return;
+  avatarController = window.BuwanAvatar.createController({
+    onState({ status, detail, progress }) {
+      const active = status === 'connecting' || status === 'ready';
+      $('avatar-status').textContent = `${detail}${Number.isFinite(progress) ? ` ${Math.round(progress)}%` : ''}`;
+      $('avatar-stage').hidden = !active;
+      document.querySelector('.portrait-frame')?.setAttribute('aria-label', status === 'ready' ? '学伴对话状态' : '数字人尚未连接');
+      $('avatar-connect').disabled = active;
+      $('avatar-disconnect').disabled = !active;
+      $('avatar-stop').disabled = status !== 'ready';
+      if (!active) { state.speaking = false; $('tts-toggle').disabled = false; }
+    },
+    onSpeaking(value) { state.speaking = value; }
+  });
+  $('avatar-connect').addEventListener('click', () => { stopSpeech(); void avatarController.connect(); });
+  $('avatar-stop').addEventListener('click', stopSpeech);
+  $('avatar-disconnect').addEventListener('click', () => { stopSpeech(); avatarController.disconnect(); });
+  const disconnect = () => { stopRecognition(); stopSpeech(); avatarController.disconnect(); };
+  window.addEventListener('pagehide', disconnect);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') disconnect(); });
+}
+
+function stopSpeech() {
+  avatarController?.stop();
+  state.utterance = null;
+  state.speaking = false;
+  $('tts-toggle').disabled = false;
+  $('preview-voice').disabled = false;
+  window.speechSynthesis?.cancel?.();
+}
+
 function previewVoice() {
   if (!('speechSynthesis' in window)) {
     setStatus('当前浏览器不支持语音试听。', true);
@@ -1070,27 +1530,41 @@ function previewVoice() {
   }
   const style = document.querySelector('input[name="style"]:checked')?.value || 'gentle';
   const settings = STYLES[style];
-  speechSynthesis.cancel();
+  stopSpeech();
   const utterance = new SpeechSynthesisUtterance(`你好，我是${$('companion-name').value.trim() || '阿晚'}。想学的事，什么时候开始都不晚。`);
   utterance.lang = 'zh-CN';
   utterance.rate = settings.rate;
   utterance.pitch = settings.pitch;
+  state.utterance = utterance;
+  state.speaking = true;
   $('preview-voice').disabled = true;
-  utterance.onend = utterance.onerror = () => { $('preview-voice').disabled = false; };
+  utterance.onend = utterance.onerror = () => {
+    if (state.utterance !== utterance) return;
+    state.utterance = null;
+    state.speaking = false;
+    $('preview-voice').disabled = false;
+  };
   speechSynthesis.speak(utterance);
 }
 
 function speak(content) {
-  if (!state.ttsEnabled || !('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
+  if (!state.ttsEnabled) return;
+  stopSpeech();
+  if (avatarController?.getState().status === 'ready') {
+    if (!avatarController.speak(content)) setStatus('数字人播报失败，文字回复仍然保留。', true);
+    return;
+  }
+  if (!('speechSynthesis' in window)) return;
   const settings = STYLES[state.companion.style];
   const utterance = new SpeechSynthesisUtterance(content);
   utterance.lang = 'zh-CN';
   utterance.rate = settings.rate;
   utterance.pitch = settings.pitch;
+  state.utterance = utterance;
   state.speaking = true;
-  $('tts-toggle').disabled = true;
   const restore = () => {
+    if (state.utterance !== utterance) return;
+    state.utterance = null;
     state.speaking = false;
     $('tts-toggle').disabled = false;
   };
@@ -1099,41 +1573,75 @@ function speak(content) {
   speechSynthesis.speak(utterance);
 }
 
+function stopRecognition(abort = true) {
+  const recognition = state.recognition;
+  state.recognition = null;
+  state.recognitionToken += 1;
+  $('voice-input').classList.remove('listening');
+  if (recognition) {
+    try { recognition[abort ? 'abort' : 'stop'](); } catch { /* 识别可能已由浏览器结束。 */ }
+  }
+}
+
 function setupRecognition() {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) {
     $('voice-input').addEventListener('click', () => setStatus('当前浏览器不支持语音输入，请使用键盘打字。', true));
     return;
   }
-  const recognition = new Recognition();
-  recognition.lang = 'zh-CN';
-  recognition.interimResults = true;
-  recognition.continuous = false;
-  state.recognition = recognition;
-  let base = '';
-  recognition.onstart = () => {
-    base = $('chat-input').value.trim();
-    $('voice-input').classList.add('listening');
-    setStatus('正在听，请说话…');
-  };
-  recognition.onresult = event => {
-    const spoken = [...event.results].map(result => result[0].transcript).join('');
-    $('chat-input').value = `${base}${base && spoken ? ' ' : ''}${spoken}`.slice(0, 500);
-    $('input-count').textContent = `${$('chat-input').value.length} / 500`;
-  };
-  recognition.onerror = event => setStatus(`语音输入未完成（${event.error}），请改用键盘打字。`, true);
-  recognition.onend = () => {
-    $('voice-input').classList.remove('listening');
-    setStatus($('chat-input').value.trim() ? '语音已转成文字，确认后发送。' : '没有识别到内容，请使用键盘打字。');
-  };
   $('voice-input').addEventListener('click', () => {
-    try { recognition.start(); } catch { setStatus('语音输入正在运行，请说话或稍后再试。'); }
+    if (state.recognition) {
+      stopRecognition(false);
+      setStatus('语音输入已停止，确认文字后发送。');
+      return;
+    }
+    if (state.busy || state.generating || state.demoRunning || $('chat-input').disabled) return;
+    const recognition = new Recognition();
+    const token = ++state.recognitionToken;
+    const conversationId = state.conversationId;
+    const current = () => state.recognition === recognition && state.recognitionToken === token && state.conversationId === conversationId;
+    const base = $('chat-input').value.trim();
+    let failed = false;
+    recognition.lang = 'zh-CN';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    state.recognition = recognition;
+    recognition.onstart = () => {
+      if (!current()) return;
+      $('voice-input').classList.add('listening');
+      setStatus('正在听，请说话…');
+    };
+    recognition.onresult = event => {
+      if (!current() || failed) return;
+      const spoken = [...event.results].map(result => result[0].transcript).join('');
+      $('chat-input').value = `${base}${base && spoken ? ' ' : ''}${spoken}`.slice(0, 500);
+      $('input-count').textContent = `${$('chat-input').value.length} / 500`;
+      saveDrafts();
+    };
+    recognition.onerror = event => {
+      if (!current()) return;
+      failed = true;
+      $('voice-input').classList.remove('listening');
+      setStatus(`语音输入未完成（${event.error}），请改用键盘打字。`, true);
+    };
+    recognition.onend = () => {
+      if (!current()) return;
+      state.recognition = null;
+      state.recognitionToken += 1;
+      $('voice-input').classList.remove('listening');
+      if (!failed) setStatus($('chat-input').value.trim() ? '语音已转成文字，确认后发送。' : '没有识别到内容，请使用键盘打字。');
+    };
+    try { recognition.start(); } catch {
+      stopRecognition();
+      setStatus('语音输入未能启动，请稍后重试或使用键盘打字。', true);
+    }
   });
 }
 
 function modelErrorMessage(error) {
   const code = error?.error?.code || error?.code || '';
   if (String(code).startsWith('auth_')) return '连接被当前站点来源拒绝，请确认使用正式站点地址。';
+  if (/Failed to fetch|Network error|NetworkError/i.test(error?.message || '')) return '网络连接未完成。请确认网络，并在正式站点重试；本地预览可能受站点来源限制。';
   if (String(code).startsWith('quota_')) return '今日模型额度暂时不足，请稍后再试。';
   if (String(code).startsWith('model_') || String(code).startsWith('gateway_')) return '模型服务暂时没有回应，请稍后重连。';
   return `模型连接失败：${error?.message || '网络暂时不可用'}。`;
@@ -1148,7 +1656,26 @@ async function initModel() {
     state.sdk = globalThis.WorkBuddyCloud.createWorkBuddyCloud({ ...publicConfig });
     const response = await state.sdk.llm.models.list();
     const models = Array.isArray(response) ? response : asArray(response?.data || response?.models);
-    state.model = models.find(model => model?.disabled !== true && model?.enabled !== false) || null;
+    const available = models.filter(model => model?.disabled !== true && model?.enabled !== false);
+    let preferred = '';
+    try { preferred = localStorage.getItem(MODEL_KEY) || ''; } catch { /* Model selection remains usable without storage. */ }
+    // Prefer the model verified in live integration, but only while the directory enables it.
+    state.model = available.find(model => model.id === preferred) || available.find(model => model.id === 'glm-5.3-flash') || available[0] || null;
+    const selector = $('model-select');
+    selector.replaceChildren();
+    available.forEach(model => {
+      const option = el('option', '', model.name || model.id);
+      option.value = model.id;
+      selector.append(option);
+    });
+    selector.value = state.model?.id || '';
+    selector.disabled = !state.model;
+    selector.onchange = () => {
+      if (state.busy || state.generating || state.demoRunning) { selector.value = state.model?.id || ''; return; }
+      state.model = available.find(model => model.id === selector.value) || state.model;
+      try { localStorage.setItem(MODEL_KEY, state.model.id); } catch { /* The choice still applies to this page. */ }
+      setStatus(`已切换到 ${state.model.name || state.model.id}，已有对话保留。`);
+    };
     state.modelStatus = state.model ? 'ready' : 'none';
     badge.textContent = state.model ? '学伴在线' : '暂无模型';
     badge.className = `model-state ${state.model ? 'ready' : 'error'}`;
@@ -1158,6 +1685,7 @@ async function initModel() {
   } catch (error) {
     state.model = null;
     state.modelStatus = 'error';
+    $('model-select').disabled = true;
     badge.textContent = '重新连接';
     badge.className = 'model-state error';
     badge.disabled = false;
@@ -1174,6 +1702,7 @@ function requestSend() {
     return;
   }
   if (!state.consented) {
+    state.pendingChatOptions = null;
     state.pendingFirstMessage = value;
     $('consent-dialog').showModal();
     requestAnimationFrame(() => $('accept-consent').focus());
@@ -1261,13 +1790,15 @@ function setupInterestDesk() {
       绘画: ['先留下第一张', '不用画得像，先把眼前的东西画下来'],
       园艺: ['先观察一株植物', '摸一摸土壤，记录它今天的状态']
     }[interest] || [`从${interest}开始`, '先做一件十分钟内能完成的小事'];
-    selectDeskObject(button);
-    setDeskSelection(details[0], details[1], true);
-    state.interests = new Set([interest]);
-    renderSeeds();
-    openStarter(interest);
+    if (selectInterest(interest)) {
+      selectDeskObject(button);
+      setDeskSelection(details[0], details[1], true);
+    }
   }));
-  const links = [...document.querySelectorAll('.rail-nav .nav-link')];
+  document.querySelectorAll('a[href="#interest-inspiration"]').forEach(link => link.addEventListener('click', () => {
+    $('interest-inspiration').open = true;
+  }));
+  const links = [...document.querySelectorAll('.rail-nav .nav-link'), ...document.querySelectorAll('.studio-tabs .studio-tab')];
   const updateNav = () => links.forEach(link => {
     const active = link.hash === (location.hash || '#app');
     link.classList.toggle('active', active);
@@ -1280,14 +1811,35 @@ function setupInterestDesk() {
 
 function setupEvents() {
   setupInterestDesk();
+  $('interest-form').addEventListener('submit', event => {
+    event.preventDefault();
+    selectInterest($('interest-input').value);
+  });
+  $('interest-input').addEventListener('input', () => {
+    $('interest-input').removeAttribute('aria-invalid');
+    $('interest-feedback').textContent = state.interests.size ? `当前兴趣仍是「${[...state.interests][0]}」，确认后才会切换。` : '这是兴趣草稿，确认后开始。';
+    saveDrafts();
+  });
+  window.addEventListener('pagehide', () => {
+    if (starter.interest) pauseStarter('页面离开时已暂停，回来后点击继续');
+    saveSession();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden' || !starter.running) return;
+    pauseStarter('页面离开时已暂停，回来后点击继续');
+  });
   $('use-default-companion').addEventListener('click', event => {
     event.preventDefault();
     state.companion = { ...DEFAULT_COMPANION };
     writeCompanion(state.companion);
     updateCompanionUi();
+    stopSpeech();
     $('companion-dialog').close();
   });
-  $('chat-input').addEventListener('input', event => { $('input-count').textContent = `${event.target.value.length} / 500`; });
+  $('chat-input').addEventListener('input', event => {
+    $('input-count').textContent = `${event.target.value.length} / 500`;
+    saveDrafts();
+  });
   $('chat-input').addEventListener('keydown', event => {
     if (event.isComposing || event.keyCode === 229) return;
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1302,15 +1854,26 @@ function setupEvents() {
   $('clear-chat').addEventListener('click', () => newConversation());
   $('exit-demo').addEventListener('click', () => newConversation());
   $('open-companion').addEventListener('click', openCompanionDialog);
-  $('close-dialog').addEventListener('click', () => $('companion-dialog').close());
+  $('close-dialog').addEventListener('click', () => {
+    stopSpeech();
+    $('companion-dialog').close();
+  });
+  $('companion-dialog').addEventListener('cancel', stopSpeech);
+  $('companion-dialog').addEventListener('close', () => {
+    if ($('preview-voice').disabled) stopSpeech();
+  });
   $('companion-form').addEventListener('submit', saveCompanion);
   $('preview-voice').addEventListener('click', previewVoice);
   $('tts-toggle').addEventListener('click', () => {
+    if (!('speechSynthesis' in window) && avatarController?.getState().status !== 'ready') {
+      setStatus('当前浏览器不支持语音播报。', true);
+      return;
+    }
     state.ttsEnabled = !state.ttsEnabled;
     $('tts-toggle').setAttribute('aria-pressed', String(state.ttsEnabled));
     $('tts-toggle').title = state.ttsEnabled ? '关闭语音播报' : '开启语音播报';
     $('tts-toggle').querySelector('.sr-only').textContent = $('tts-toggle').title;
-    if (!state.ttsEnabled) speechSynthesis?.cancel?.();
+    if (!state.ttsEnabled) stopSpeech();
     setStatus(state.ttsEnabled ? '语音播报已开启，只会播报之后的新回应。' : '语音播报已关闭。');
   });
   $('accept-consent').addEventListener('click', () => {
@@ -1323,10 +1886,13 @@ function setupEvents() {
       return;
     }
     const pending = state.pendingFirstMessage;
+    const options = state.pendingChatOptions || {};
     state.pendingFirstMessage = '';
-    void sendChatMessage(pending);
+    state.pendingChatOptions = null;
+    void sendChatMessage(pending, options);
   });
   $('decline-consent').addEventListener('click', () => {
+    state.pendingChatOptions = null;
     state.pendingFirstMessage = '';
     state.pendingDemo = null;
     $('consent-dialog').close();
@@ -1348,8 +1914,13 @@ function init() {
   updateCompanionUi();
   setCompanionPresence('idle');
   setupEvents();
-  newConversation();
+  if (!restoreSession()) {
+    $('conversation-id-short').textContent = state.conversationId.slice(0, 8);
+    initialGreeting();
+    setStatus('可以从一个兴趣开始，内容会保存在本浏览器。');
+  }
   setupCompanionDialog(stored.isFirst);
+  setupAvatar();
   void initModel();
 }
 
