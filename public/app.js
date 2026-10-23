@@ -521,9 +521,15 @@ function renderLearningHistory() {
   const records = [...readLearningRecords()].reverse().filter(item => (!day || item.day === day) && (!interest || item.interest.includes(interest)));
   if (!records.length) root.append(el('p', 'source-note', '还没有符合条件的学习记录。'));
   records.forEach(item => {
-    const row = el('article', 'guide-card');
-    row.append(el('h3', '', `${item.day} · ${item.interest} · ${item.completed ? '已完成' : item.id === starter.id && starter.running ? '进行中' : item.started ? '已暂停' : '待开始'}`),
-      el('p', '', item.task), el('p', 'source-note', `${sourceLabel(item.source)} · 实际用时 ${Math.round((item.elapsedSeconds || 0) * 10) / 10} 秒${item.completedAt ? ` · 完成于 ${new Date(item.completedAt).toLocaleString('zh-CN')}` : item.completed ? ' · 旧记录未保存完成时间' : ''}`));
+    const row = el('article', 'guide-card history-card');
+    row.append(el('h3', 'history-card-title', `${item.day} · ${item.interest} · ${item.completed ? '已完成' : item.id === starter.id && starter.running ? '进行中' : item.started ? '已暂停' : '待开始'}`),
+      el('p', 'history-task', item.task));
+    const meta = el('div', 'history-meta');
+    meta.append(el('span', '', sourceLabel(item.source)),
+      el('span', '', `实际用时 ${Math.round((item.elapsedSeconds || 0) * 10) / 10} 秒`));
+    if (item.completedAt) meta.append(el('span', '', `完成于 ${new Date(item.completedAt).toLocaleString('zh-CN')}`));
+    else if (item.completed) meta.append(el('span', '', '旧记录未保存完成时间'));
+    row.append(meta);
     const action = el('button', 'quiet-button', item.completed ? '带入一次复盘草稿' : '恢复这项任务');
     action.type = 'button';
     action.disabled = item.id === starter.id && !item.completed;

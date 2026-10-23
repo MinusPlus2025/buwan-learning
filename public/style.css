@@ -3112,8 +3112,25 @@ html { scroll-padding-top: 90px; }
 .service-details summary { cursor: pointer; }
 #conversation, #unlock-panel, #learning-history, #interest-inspiration { scroll-margin-top: 96px; }
 #learning-history { margin-top: 58px; padding-top: 32px; border-top: 1px solid var(--line); }
-#learning-history .starter-options { margin: 22px 0; gap: 16px; }
-#learning-history input { min-height: 40px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--ink); padding: 6px 10px; }
+#learning-history .history-intro { display: grid; gap: 12px; padding-bottom: 0; }
+#learning-history .history-intro h2 { margin: 0; font-size: clamp(26px, 3vw, 34px); line-height: 1.35; }
+#learning-history .history-intro .source-note { max-width: 72ch; margin: 0; font-size: 14px; line-height: 1.75; }
+#learning-history .history-filters { display: grid; grid-template-columns: minmax(160px, 200px) minmax(180px, 300px); margin: 28px 0 24px; gap: 20px; }
+#learning-history .history-filters label { display: grid; min-width: 0; gap: 8px; font-size: 14px; line-height: 1.5; }
+#learning-history input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--ink); padding: 10px 12px; font: inherit; }
+#learning-history-list { gap: 16px; }
+#learning-history .history-card { display: grid; min-width: 0; gap: 16px; padding: 24px; }
+#learning-history .history-card-title { margin: 0; font-size: 18px; line-height: 1.6; overflow-wrap: anywhere; }
+#learning-history .history-task { margin: 0; font-size: 16px; line-height: 1.85; overflow-wrap: anywhere; }
+#learning-history .history-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+#learning-history .history-meta span { min-width: 0; overflow-wrap: anywhere; }
+#learning-history .history-card > .quiet-button { justify-self: start; max-width: 100%; min-height: 44px; margin-top: 4px; padding: 10px 16px; font-size: 14px; line-height: 1.5; white-space: normal; }
+#learning-history-list > .source-note { margin: 0; padding: 24px 0; font-size: 14px; line-height: 1.75; }
+@media (max-width: 600px) {
+  #learning-history .history-filters { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  #learning-history .history-card { padding: 20px; }
+  #learning-history .history-meta { flex-direction: column; gap: 6px; }
+}
 body.focus-mode .interest-inspiration, body.focus-mode .studio-tabs, body.focus-mode .studio-empty, body.focus-mode .interest-form, body.focus-mode .interest-examples-label { display: none; }
 @media (min-width: 1101px) {
   .rail { position: fixed; height: 78px; backdrop-filter: blur(16px); }
