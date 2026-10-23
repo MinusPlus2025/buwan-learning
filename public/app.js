@@ -523,8 +523,16 @@ function renderLearningHistory() {
   if (!records.length) root.append(el('p', 'source-note', '还没有符合条件的学习记录。'));
   records.forEach(item => {
     const row = el('article', 'guide-card history-card');
-    row.append(el('h3', 'history-card-title', `${item.day} · ${item.interest} · ${item.completed ? '已完成' : item.id === starter.id && starter.running ? '进行中' : item.started ? '已暂停' : '待开始'}`),
-      el('p', 'history-task', item.task));
+    const heading = el('div', 'history-card-heading');
+    const identity = el('div', 'history-identity');
+    const date = el('time', 'history-date', item.day);
+    date.setAttribute('datetime', item.day);
+    identity.append(date, el('h3', 'history-card-title', item.interest));
+    const status = item.completed ? '已完成' : item.id === starter.id && starter.running ? '进行中' : item.started ? '已暂停' : '待开始';
+    const badge = el('span', 'history-status', status);
+    badge.dataset.completed = String(Boolean(item.completed));
+    heading.append(identity, badge);
+    row.append(heading, el('p', 'history-task', item.task));
     const meta = el('div', 'history-meta');
     meta.append(el('span', '', sourceLabel(item.source)),
       el('span', '', `实际用时 ${Math.round((item.elapsedSeconds || 0) * 10) / 10} 秒`));

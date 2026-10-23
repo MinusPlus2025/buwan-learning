@@ -3156,15 +3156,24 @@ html { scroll-padding-top: 90px; }
 #learning-history { margin-top: 58px; padding-top: 32px; border-top: 1px solid var(--line); }
 #learning-history .history-intro { display: grid; gap: 12px; padding-bottom: 0; }
 #learning-history .history-intro h2 { margin: 0; font-size: clamp(26px, 3vw, 34px); line-height: 1.35; }
-#learning-history .history-intro .source-note { max-width: 72ch; margin: 0; font-size: 14px; line-height: 1.75; }
+#learning-history .history-subtitle { margin: 0; font-size: 16px; line-height: 1.75; color: var(--muted); }
+.history-storage-note { font-size: 13px; line-height: 1.8; color: var(--muted); }
+.history-storage-note summary { cursor: pointer; width: fit-content; padding: 6px 0; }
+.history-storage-note p { max-width: 72ch; margin: 8px 0 0; }
 #learning-history .history-filters { display: grid; grid-template-columns: minmax(160px, 200px) minmax(180px, 300px); margin: 28px 0 24px; gap: 20px; }
 #learning-history .history-filters label { display: grid; min-width: 0; gap: 8px; font-size: 14px; line-height: 1.5; }
 #learning-history input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--ink); padding: 10px 12px; font: inherit; }
 #learning-history-list { gap: 16px; }
-#learning-history .history-card { display: grid; min-width: 0; gap: 16px; padding: 24px; }
-#learning-history .history-card-title { margin: 0; font-size: 18px; line-height: 1.6; overflow-wrap: anywhere; }
+#learning-history .history-card { display: grid; min-width: 0; gap: 20px; padding: 28px; border-radius: 18px; box-shadow: 0 4px 20px #392e2a04; transition: border-color .2s, box-shadow .2s; }
+#learning-history .history-card:hover { border-color: #d9b49b; box-shadow: 0 6px 24px #392e2a08; }
+.history-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.history-identity { display: grid; min-width: 0; gap: 6px; }
+.history-date { font-size: 13px; color: var(--muted); line-height: 1.6; font-variant-numeric: tabular-nums; }
+#learning-history .history-card-title { margin: 0; font-size: 24px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
+.history-status { flex: 0 0 auto; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; line-height: 1.5; background: #fff8ef; }
+.history-status[data-completed="true"] { color: #8c4a28; background: #fff0df; border-color: #f0d9bc; }
 #learning-history .history-task { margin: 0; font-size: 16px; line-height: 1.85; overflow-wrap: anywhere; }
-#learning-history .history-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+#learning-history .history-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.8; }
 #learning-history .history-meta span { min-width: 0; overflow-wrap: anywhere; }
 #learning-history .history-card > .quiet-button { justify-self: start; max-width: 100%; min-height: 44px; margin-top: 4px; padding: 10px 16px; font-size: 14px; line-height: 1.5; white-space: normal; }
 #learning-history-list > .source-note { margin: 0; padding: 24px 0; font-size: 14px; line-height: 1.75; }

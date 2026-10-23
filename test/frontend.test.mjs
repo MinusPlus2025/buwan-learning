@@ -926,7 +926,7 @@ test('已练习来源仍优先恢复同来源的未完成项，跨日不重复�
 });
 
 const reviewButton = (app, interest) => app.node('learning-history-list').children
-  .find(row => row.children[0]?.textContent.includes(` · ${interest} · 已完成`)).querySelector('.quiet-button');
+  .find(row => row.querySelector('.history-card-title')?.textContent === interest && row.querySelector('.history-status')?.textContent === '已完成').querySelector('.quiet-button');
 
 for (const currentInterest of ['绘画', null]) {
   test(`历史复盘从${currentInterest || '无兴趣'}切换到英语，真实请求不包含旧轮次和手册`, async () => {
