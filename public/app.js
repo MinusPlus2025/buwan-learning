@@ -932,7 +932,7 @@ function boundedMessages(through = null) {
 
 function companionSystem(extra = '') {
   const title = state.companion.userTitle ? `称呼用户为“${state.companion.userTitle}”` : '自然称呼用户，不擅自取名';
-  return `你是中文学习伙伴“${state.companion.name}”。你的风格是：${STYLES[state.companion.style].prompt}。${title}。你帮助成年人把想学的事变成可开始的小步。不得编造用户经历、案例、研究、课程或来源；不确定就明确说不确定。每次只问一个问题，回复不超过60个汉字，避免空泛鼓励。游泳相关绝不建议独自下水，也不建议任何憋气练习。${extra}`;
+  return `你是中文学习伙伴“${state.companion.name}”。你的风格是：${STYLES[state.companion.style].prompt}。${title}。你帮助成年人把想学的事变成可开始的小步。不得编造用户经历、案例、研究、课程或来源；不确定就明确说不确定。用日常口语和短句说话，标点自然停顿，不用播音腔、角色自述或每轮重复安慰；贴着用户刚说的具体事情回应。每次只问一个问题，回复不超过60个汉字，避免空泛鼓励。游泳相关绝不建议独自下水，也不建议任何憋气练习。${extra}`;
 }
 
 function throwIfAborted(signal) {
@@ -1432,6 +1432,7 @@ function openCompanionDialog() {
   if (selected) selected.checked = true;
   $('name-error').textContent = '';
   $('title-error').textContent = '';
+  refreshVoiceChoices(state.companion.voice_id);
   $('companion-dialog').showModal();
   requestAnimationFrame(() => $('companion-name').focus());
 }
@@ -1481,6 +1482,7 @@ function saveCompanion(event) {
     name,
     userTitle,
     call_me: userTitle,
+    voice_id: $('companion-voice').value,
     style
   });
   writeCompanion(state.companion);
@@ -1492,7 +1494,7 @@ function saveCompanion(event) {
 
 function trapDialogFocus(dialog, event) {
   if (event.key !== 'Tab' || !dialog.open) return;
-  const focusable = [...dialog.querySelectorAll('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])')];
+  const focusable = [...dialog.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])')];
   if (!focusable.length) return;
   const first = focusable[0];
   const last = focusable[focusable.length - 1];
@@ -1538,12 +1540,80 @@ function setupAvatar() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') disconnect(); });
 }
 
+function browserVoices() {
+  try {
+    const voices = window.speechSynthesis?.getVoices?.() || [];
+    const seen = new Set();
+    return voices.filter(voice => /^zh(?:[-_]|$)/i.test(voice.lang) && !seen.has(voiceKey(voice)) && seen.add(voiceKey(voice)));
+  } catch { return []; }
+}
+
+function voiceKey(voice) { return voice.voiceURI || `${voice.lang}:${voice.name}`; }
+
+function refreshVoiceChoices(preferred = $('companion-dialog').open ? $('companion-voice').value : state.companion.voice_id) {
+  const voices = browserVoices();
+  const select = $('companion-voice');
+  select.replaceChildren();
+  const automatic = el('option', '', '自动选择中文音色');
+  automatic.value = '';
+  select.append(automatic);
+  voices.forEach(voice => {
+    const option = el('option', '', `${voice.name} · ${voice.lang}${voice.localService ? ' · 本机' : ''}`);
+    option.value = voiceKey(voice);
+    select.append(option);
+  });
+  const missing = preferred && !voices.some(voice => voiceKey(voice) === preferred);
+  if (missing) {
+    const option = el('option', '', '已保存的音色在这台设备不可用');
+    option.value = preferred;
+    select.append(option);
+  }
+  select.value = preferred || '';
+  select.disabled = !voices.length && !missing;
+  $('preview-voice').disabled = state.speaking || !voices.length;
+  $('voice-availability').textContent = !('speechSynthesis' in window) ? '当前浏览器不支持语音，请使用文字对话。'
+    : missing ? '已保存的音色不可用，请重新选择；不会静默换成其他声音。'
+    : voices.length === 0 ? '尚未读取到中文音色。可以稍后重开设置，或在系统语音设置中添加中文声音。'
+    : voices.length === 1 ? `当前只有 1 个中文音色（${voices[0].name}）。切换交流风格不会变成另一种声音。`
+    : `当前有 ${voices.length} 个中文音色，可逐个试听比较。`;
+}
+
+function setupVoices() {
+  refreshVoiceChoices(state.companion.voice_id);
+  window.speechSynthesis?.addEventListener?.('voiceschanged', () => refreshVoiceChoices());
+  $('companion-voice').addEventListener('change', () => {
+    stopSpeech();
+    refreshVoiceChoices($('companion-voice').value);
+  });
+  $('stop-preview').addEventListener('click', stopSpeech);
+}
+
+function applyVoice(utterance, id) {
+  const voices = browserVoices();
+  const voice = id ? voices.find(item => voiceKey(item) === id)
+    : voices.find(item => /^zh[-_]CN$/i.test(item.lang) && item.default)
+      || voices.find(item => /^zh[-_]CN$/i.test(item.lang)) || voices[0];
+  if (!voice) {
+    const message = id ? '所选音色当前不可用，请在学伴设置中重新选择。' : '当前没有可用的中文音色，请在系统中添加中文声音。';
+    $('voice-availability').textContent = message;
+    setStatus(message, true);
+    return false;
+  }
+  if (voice) utterance.voice = voice;
+  utterance.lang = voice?.lang || 'zh-CN';
+  // Keep the actual voice intact; conversation style must not distort pitch.
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  return true;
+}
+
 function stopSpeech() {
   avatarController?.stop();
   state.utterance = null;
   state.speaking = false;
   $('tts-toggle').disabled = false;
-  $('preview-voice').disabled = false;
+  $('preview-voice').disabled = !browserVoices().length;
+  $('stop-preview').disabled = true;
   window.speechSynthesis?.cancel?.();
   setCompanionPresence(state.busy ? 'thinking' : 'idle');
 }
@@ -1553,21 +1623,21 @@ function previewVoice() {
     setStatus('当前浏览器不支持语音试听。', true);
     return;
   }
-  const style = document.querySelector('input[name="style"]:checked')?.value || 'gentle';
-  const settings = STYLES[style];
   stopSpeech();
-  const utterance = new SpeechSynthesisUtterance(`你好，我是${$('companion-name').value.trim() || '阿晚'}。想学的事，什么时候开始都不晚。`);
-  utterance.lang = 'zh-CN';
-  utterance.rate = settings.rate;
-  utterance.pitch = settings.pitch;
+  const utterance = new SpeechSynthesisUtterance(`你好，我是${$('companion-name').value.trim() || '学伴'}。想学，什么时候都不晚。今天想试试什么？我们从一小步开始。`);
+  if (!applyVoice(utterance, $('companion-voice').value)) return;
   state.utterance = utterance;
   state.speaking = true;
   $('preview-voice').disabled = true;
+  $('stop-preview').disabled = false;
+  utterance.onstart = () => { if (state.utterance === utterance) setCompanionPresence('responding'); };
   utterance.onend = utterance.onerror = () => {
     if (state.utterance !== utterance) return;
     state.utterance = null;
     state.speaking = false;
-    $('preview-voice').disabled = false;
+    $('preview-voice').disabled = !browserVoices().length;
+    $('stop-preview').disabled = true;
+    setCompanionPresence('idle');
   };
   speechSynthesis.speak(utterance);
 }
@@ -1580,11 +1650,8 @@ function speak(content) {
     return;
   }
   if (!('speechSynthesis' in window)) return;
-  const settings = STYLES[state.companion.style];
   const utterance = new SpeechSynthesisUtterance(content);
-  utterance.lang = 'zh-CN';
-  utterance.rate = settings.rate;
-  utterance.pitch = settings.pitch;
+  if (!applyVoice(utterance, state.companion.voice_id)) return;
   state.utterance = utterance;
   state.speaking = true;
   const restore = () => {
@@ -1952,6 +2019,7 @@ function init() {
     setStatus('可以从一个兴趣开始，内容会保存在本浏览器。');
   }
   setupCompanionDialog(stored.isFirst);
+  setupVoices();
   setupAvatar();
   void initModel();
 }

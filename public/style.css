@@ -3110,6 +3110,14 @@ html { scroll-padding-top: 90px; }
 .starter-config, .starter-action { border-radius: 18px; }
 .service-details { color: var(--muted); font-size: 11px; margin: 12px 0; }
 .service-details summary { cursor: pointer; }
+.voice-settings { min-width: 0; }
+.voice-settings .voice-explanation { margin: 8px 0 16px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.voice-settings select { display: block; width: 100%; min-width: 0; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; }
+.voice-preview-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.voice-settings .voice-preview { gap: 16px; flex-wrap: wrap; }
+.voice-settings .voice-preview span { line-height: 1.7; }
+.hero h1 { font-size: clamp(40px, 4.3vw, 62px); }
+@media (max-width: 760px) { .hero #seed-title { font-size: clamp(28px, 7.5vw, 46px); } }
 /* Keep companion controls and captions in their own flow. */
 .companion-stage .stage-head { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; gap: 24px; }
 .companion-stage .stage-head > div { min-width: 0; width: 100%; }

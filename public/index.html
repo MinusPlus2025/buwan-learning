@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#F7F1E8">
   <meta name="description" content="不晚，陪你把想学的事变成今天能开始的一小步。">
-  <title>不晚｜想学，就从今天开始</title>
+  <title>不晚｜想学，什么时候都不晚</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -13,7 +13,7 @@
   <aside class="rail" aria-label="主导航">
     <a class="brand" href="#app" aria-label="不晚，回到首页">
       <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 80 80" focusable="false"><rect width="80" height="80" rx="24" fill="#EF7049"></rect><path d="M19 46C19 33 28 24 43 22L38 45C35 54 27 59 19 58Z" fill="#FFF8F0"></path><path d="M38 45C43 34 52 29 63 30L57 49C54 58 45 61 32 59Z" fill="#F6CF8A"></path></svg></span>
-      <span class="brand-copy"><span class="brand-cn">不晚</span><span class="slogan">想学，就从今天开始</span></span>
+      <span class="brand-copy"><span class="brand-cn">不晚</span><span class="slogan">想学，什么时候都不晚</span></span>
     </a>
     <nav class="rail-nav">
       <a class="nav-link active" href="#app" aria-label="我的练习室"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m3 10 9-7 9 7v11h-7v-7h-4v7H3z"/></svg><span>我的练习室</span></a>
@@ -41,10 +41,10 @@
     <section class="hero" aria-labelledby="seed-title">
       <div class="hero-intro">
         <p class="hero-kicker"><span></span> A LITTLE TIME, JUST FOR YOU</p>
-        <h1 id="seed-title"><span>想学，</span><span>就从<em>今天</em>开始。</span></h1>
+        <h1 id="seed-title"><span>想学，</span><span>什么时候<em>都不晚。</em></span></h1>
         <p class="hero-subtitle">那件一直想试试的事，还在等你。<br>不用准备好一切，先给喜欢的事十分钟。</p>
         <form id="interest-form" class="interest-form" novalidate>
-          <label for="interest-input">今天，想给什么兴趣一点时间？</label>
+          <label for="interest-input">就从今天开始，想给什么兴趣一点时间？</label>
           <div class="interest-entry"><input id="interest-input" type="text" maxlength="80" autocomplete="off" placeholder="陶艺、口琴，或给家人拍一段短片…" aria-describedby="interest-help interest-feedback"><button class="primary-button" type="submit">从这里开始 <span aria-hidden="true">↗</span></button></div>
           <p id="interest-help">任何想学的事都可以。先找到今天能完成的一小步。</p>
           <p id="interest-feedback" class="interest-feedback" role="status" aria-live="polite"></p>
@@ -287,13 +287,18 @@
         <div id="style-options" class="style-options"></div>
       </fieldset>
 
-      <div class="voice-preview">
-        <div>
-          <strong>听听 TA 的声音</strong>
-          <span>使用浏览器内置语音，仅试听时播放</span>
+      <fieldset class="voice-settings">
+        <legend>选择声音</legend>
+        <p class="voice-explanation">交流风格决定怎么聊，声音单独选择。试听和普通对话使用同一音色。</p>
+        <label class="field-label" for="companion-voice">这台设备可用的中文音色</label>
+        <select id="companion-voice" aria-describedby="voice-availability voice-source"><option value="">自动选择中文音色</option></select>
+        <p id="voice-availability" class="voice-explanation" role="status" aria-live="polite">正在读取设备音色…</p>
+        <div class="voice-preview">
+          <div><strong>听听合不合适</strong><span>先试听，再保存你喜欢的声音</span></div>
+          <div class="voice-preview-actions"><button id="preview-voice" class="secondary-button" type="button">试听一句</button><button id="stop-preview" class="quiet-button" type="button" disabled>停止</button></div>
         </div>
-        <button id="preview-voice" class="secondary-button" type="button">试听一句</button>
-      </div>
+        <p id="voice-source" class="voice-explanation">声音由设备系统提供，音质和数量因设备而异。连接数字人后，回复使用数字人应用中设置的音色。</p>
+      </fieldset>
 
       <div class="dialog-actions companion-actions">
         <button id="use-default-companion" class="secondary-button" type="reset">先用默认的</button>

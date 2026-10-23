@@ -117,7 +117,7 @@ function frontend({ storage = new Map() } = {}) {
       return null;
     },
     querySelectorAll(selector) {
-      assert.ok(['[data-desk-interest]'].includes(selector), selector);
+      assert.ok(['[data-desk-interest]', '.message.assistant .avatar', '.message.assistant .speaker-name'].includes(selector), selector);
       return [];
     }
   });
@@ -177,6 +177,8 @@ function frontend({ storage = new Map() } = {}) {
       const recognitions = [];
       const utterances = [];
       const synthesis = {
+        voices: [{ name: '测试中文音色', voiceURI: 'test-zh', lang: 'zh-CN', default: true, localService: true }],
+        getVoices() { return this.voices; },
         cancels: 0,
         cancel() { this.cancels += 1; },
         speak(utterance) { utterances.push(utterance); }
@@ -200,6 +202,43 @@ function frontend({ storage = new Map() } = {}) {
     }
   };
 }
+
+test('试听与回复绑定相同音色，不用交流风格修改音高，保存后可恢复', () => {
+  const app = frontend();
+  const voice = app.installVoice();
+  const second = { name: '另一中文音色', voiceURI: 'second-zh', lang: 'zh-CN' };
+  voice.synthesis.voices.push(second);
+  app.evaluate('refreshVoiceChoices()');
+  app.node('companion-voice').value = 'second-zh';
+  app.node('companion-name').value = '小步';
+  app.previewVoice();
+  assert.equal(voice.utterances[0].voice, second);
+  assert.equal(voice.utterances[0].pitch, 1);
+  assert.equal(app.node('stop-preview').disabled, false);
+  app.evaluate('saveCompanion({preventDefault(){}})');
+  assert.equal(app.state.companion.voice_id, 'second-zh');
+  assert.equal(app.evaluate('readCompanion().value.voice_id'), 'second-zh');
+  app.state.ttsEnabled = true;
+  app.speak('先试十分钟。');
+  assert.equal(voice.utterances[1].voice, second);
+  assert.equal(voice.utterances[1].rate, 1);
+});
+
+test('只有一种音色或音色缺失时如实提示，不静默换声', () => {
+  const app = frontend();
+  const voice = app.installVoice();
+  app.evaluate('refreshVoiceChoices()');
+  assert.match(app.node('voice-availability').textContent, /只有 1 个/);
+  app.state.companion.voice_id = 'missing';
+  app.state.ttsEnabled = true;
+  app.speak('你好');
+  assert.equal(voice.utterances.length, 0);
+  assert.match(app.node('voice-availability').textContent, /不可用/);
+  voice.synthesis.voices = [];
+  app.evaluate('refreshVoiceChoices("")');
+  assert.equal(app.node('preview-voice').disabled, true);
+  assert.match(app.node('voice-availability').textContent, /尚未读取/);
+});
 
 const chunk = (content, finish_reason) => ({ choices: [{ delta: { content }, finish_reason }] });
 async function* stream(chunks) { yield* chunks; }
