@@ -2,9 +2,12 @@
 .avatar-setup-steps li + li { margin-top: 6px; }
 .avatar-setup-steps a { color: var(--coral); text-underline-offset: 3px; }
 .avatar-setup-steps code { font-size: 0.9em; overflow-wrap: anywhere; }
-.avatar-stage { width: 100%; aspect-ratio: 16 / 9; height: auto; min-height: 220px; max-height: 420px; position: relative; overflow: hidden; }
+.avatar-stage { width: 100%; aspect-ratio: 3 / 5; height: auto; max-height: 60vh; margin-inline: auto; position: relative; overflow: hidden; border-radius: 12px; background: var(--sage-soft); }
 .avatar-stage[hidden] { display: none; }
 .avatar-stage > * { width: 100%; height: 100%; }
+/* 数字人连接后，等待态光环让位给实时画面 */
+.companion-stage[data-avatar-state="ready"] .portrait-frame,
+.companion-stage[data-avatar-state="offline"] .portrait-frame { display: none; }
 
 :root {
   color-scheme: light;

@@ -20,6 +20,39 @@
   };
   let sdkLoading = null;
 
+  // 覆盖控制台 anchor：星云应用配置里的 SetCharacterCanvasAnchor 面向固定容器比例，
+  // 在比例不同的舞台上会把竖幅全身形象裁成窄条。改用 SDK 的 layout 接口，按舞台实际
+  // 尺寸计算 cover 缩放，形象居中、不变形；舞台尺寸变化（含取消隐藏）时重新计算。
+  function applyStageLayout(attempt) {
+    const sdk = attempt && attempt.sdk;
+    const stage = queryStage();
+    if (!sdk || !stage) return;
+    const canvas = stage.querySelector('canvas');
+    const baseW = (canvas && canvas.width) || 1080;
+    const baseH = (canvas && canvas.height) || 1920;
+    const rect = stage.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const scale = Math.max(rect.width / baseW, rect.height / baseH);
+    const layout = { avatar: { h_align: 'center', v_align: 'center', scale } };
+    try {
+      if (typeof sdk.changeLayout === 'function') sdk.changeLayout(layout);
+      else if (typeof sdk.setCharacterCanvasLayout === 'function') sdk.setCharacterCanvasLayout(layout);
+    } catch { /* 布局覆盖失败时退回控制台 anchor，不影响连接本身。 */ }
+  }
+  let stageObserver = null;
+  // 舞台元素查询统一走这里：测试或极端环境下 document 可能没有 querySelector。
+  function queryStage() {
+    const document = root.document;
+    if (!document || typeof document.querySelector !== 'function') return null;
+    return document.querySelector('#avatar-stage');
+  }
+  function observeStage(getAttempt) {
+    const stage = queryStage();
+    if (!stage || stageObserver || typeof root.ResizeObserver !== 'function') return;
+    stageObserver = new root.ResizeObserver(() => { const attempt = getAttempt(); if (attempt) applyStageLayout(attempt); });
+    stageObserver.observe(stage);
+  }
+
   function notify(callback, value) {
     try { callback(value); } catch { /* 界面回调异常不影响会话释放。 */ }
   }
@@ -63,6 +96,99 @@
     return pending;
   }
 
+  // 直连会话架构：星云后端依据请求的 TLS/HTTP 特征判定客户端类型，由服务端代建会话会被
+  // 归类为后端客户端而拒绝 WebSocket 接入（SOCKET_QUIT ttsa_backend_lite）。故拦截 SDK
+  // 对网关的会话请求：先用服务端签发的签名头从浏览器直连星云建会话，再把响应中的阿里云
+  // 资源地址改写成本地代理路径。App Secret 始终只在服务端，不下发浏览器。
+  const ASSET_ORIGIN = 'https://public-xmov.oss-cn-hangzhou.aliyuncs.com/';
+  const ASSET_PREFIX = '/api/avatar/asset/';
+  let directSessionHooked = false;
+  let directSessionToken = null;
+  function rewriteAssetUrls(value) {
+    if (typeof value === 'string') {
+      return value.indexOf(ASSET_ORIGIN) === 0 ? ASSET_PREFIX + value.slice(ASSET_ORIGIN.length) : value;
+    }
+    if (Array.isArray(value)) {
+      for (let i = 0; i < value.length; i++) value[i] = rewriteAssetUrls(value[i]);
+      return value;
+    }
+    if (value && typeof value === 'object') {
+      for (const key of Object.keys(value)) value[key] = rewriteAssetUrls(value[key]);
+      return value;
+    }
+    return value;
+  }
+  function installDirectSession(config) {
+    const originalFetch = root.fetch;
+    if (typeof originalFetch !== 'function') return;
+    const gatewayPath = config && config.gatewayServer;
+    const sessionToken = config && config.headers && config.headers['X-Buwan-Avatar-Token'];
+    if (typeof gatewayPath !== 'string' || typeof sessionToken !== 'string' || !sessionToken) return;
+    // 每次拿到新配置都更新 token：离线切回在线等场景会重建会话，旧 token 已被服务端回收。
+    directSessionToken = sessionToken;
+    if (directSessionHooked) return;
+    directSessionHooked = true;
+    const authHeaders = () => ({ 'Content-Type': 'application/json', 'X-Buwan-Avatar-Token': directSessionToken });
+    root.fetch = async (input, init) => {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      const method = String((init && init.method) || 'GET').toUpperCase();
+      if (url !== gatewayPath || method !== 'POST') return originalFetch(input, init);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const signResponse = await originalFetch('/api/avatar/sign', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: authHeaders(),
+            body: init && init.body
+          });
+          if (signResponse.ok) {
+            const signed = await signResponse.json();
+            if (signed && typeof signed.url === 'string' && signed.headers && typeof signed.body === 'string') {
+              const direct = await originalFetch(signed.url, {
+                method: 'POST',
+                credentials: 'omit',
+                headers: { ...signed.headers, 'Content-Type': 'application/json' },
+                body: signed.body
+              });
+              const payload = await direct.json().catch(() => null);
+              if (payload && typeof payload === 'object') {
+                rewriteAssetUrls(payload);
+                const sessionId = payload && payload.data && payload.data.session_id;
+                if (direct.ok && typeof sessionId === 'string' && sessionId) {
+                  void originalFetch('/api/avatar/activated', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ request_id: signed.requestId, session_id: sessionId })
+                  }).catch(() => {});
+                }
+                return new Response(JSON.stringify(payload), {
+                  status: direct.status,
+                  headers: { 'Content-Type': 'application/json' }
+                });
+              }
+            }
+          } else if (signResponse.status === 403 && attempt === 0) {
+            // 连接凭证已被服务端回收（离线模式停止会话后重连即此场景）：换取新凭证再试一次。
+            const configResponse = await originalFetch('/api/avatar/config', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+              body: '{}'
+            });
+            if (configResponse.ok) {
+              const fresh = await configResponse.json().catch(() => null);
+              const freshToken = fresh && fresh.headers && fresh.headers['X-Buwan-Avatar-Token'];
+              if (typeof freshToken === 'string' && freshToken) { directSessionToken = freshToken; continue; }
+            }
+          }
+        } catch { /* 签名或直连失败时落入服务端代理兜底。 */ }
+        break;
+      }
+      return originalFetch(gatewayPath, init);
+    };
+  }
+
   function createController({
     fetchImpl = (...args) => root.fetch(...args),
     SDKClass,
@@ -75,6 +201,7 @@
     let current = null;
     let sequence = 0;
     let speaking = false;
+    observeStage(() => current);
 
     const getState = () => ({ ...state });
     const active = (attempt) => current === attempt && attempt.sequence === sequence;
@@ -123,6 +250,7 @@
       if (attempt.progress !== undefined) next.progress = attempt.progress;
       settle(attempt, next);
       publish(next);
+      applyStageLayout(attempt);
     };
     const watchCommand = (attempt, result) => {
       Promise.resolve(result).catch(() => { if (active(attempt)) fail(attempt); });
@@ -167,6 +295,7 @@
           fail(attempt, DETAILS.scriptError);
           return;
         }
+        installDirectSession(config);
         attempt.sdk = new Avatar({
           containerId,
           appId: config.appId,
@@ -184,7 +313,8 @@
             if (status === 0) {
               attempt.online = true;
               maybeReady(attempt);
-            } else if ([1, 3, 4, 5, 7].includes(status)) {
+            } else if (status === 4 || status === 7) {
+              // 仅 close(4) 与 stopped(7) 是终态；offline(1)/network_off(3)/visible(5)/invisible(6) 均为正常状态
               fail(attempt, DETAILS.closed);
             }
           },
@@ -273,6 +403,8 @@
         watchCommand(attempt, attempt.sdk.onlineMode());
         if (!active(attempt)) return false;
         publish({ status: 'ready', detail: DETAILS.ready });
+        // 重连会重建会话与渲染资源，延迟重排一次确保布局覆盖仍然生效。
+        setTimeout(() => { if (active(attempt)) applyStageLayout(attempt); }, 800);
         return true;
       } catch {
         fail(attempt);

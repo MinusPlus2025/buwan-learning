@@ -115,6 +115,20 @@ test('固定上游、重算服务端签名、发送排序 JSON，并递归移除
   assert.match(capabilities.avatar.note,/尚未验收/);
 });
 
+test('上游 token 保留给客户端 SDK 连接实时网关，密钥与签名回显仍被移除',async t=>{
+  const upstreamToken='upstream-websocket-token-xyz';
+  const api=await client(t,async()=>Response.json({error_code:0,data:{session_id:'s1',token:upstreamToken,socket_io_url:'https://ttsa-gateway-lite.xingyun3d.com',appSecret:credentials.appSecret,'X-TOKEN':'sig-echo',resource_pack:{},config:{}}}));
+  const config=await api.config();
+  const response=await api.request(config.gatewayServer,'POST',{request_id:'token-keep'},{...config.headers});
+  assert.equal(response.status,200);
+  const result=await response.json();
+  assert.equal(result.data.token,upstreamToken);
+  assert.equal(result.data.socket_io_url,'https://ttsa-gateway-lite.xingyun3d.com');
+  assert.equal(result.data.appSecret,undefined);
+  assert.equal(result.data['X-TOKEN'],undefined);
+  assert.equal(JSON.stringify(result).includes(credentials.appSecret),false);
+});
+
 test('config 和 session 强制同源及 JSON，并限制请求体 32KB',async t=>{
   let calls=0;
   const api=await client(t,async()=>{calls++;return Response.json(success());});
@@ -329,4 +343,61 @@ test('CSP 保留 self/cloud，并允许官方 SDK、worker 和资源域名',asyn
   for(const part of ["default-src 'self'",'https://cdn.jsdelivr.net','https://media.xingyun3d.com',"worker-src 'self' blob:","style-src 'self' 'unsafe-inline'",'https://buwan-learning.app.workbuddy.host','https://*.xingyun3d.com','wss://*.xingyun3d.com','https://*.youyan.xyz','wss://*.youyan.xyz'])assert.ok(csp.includes(part),part);
   for(const path of ['/.env','/.env.example','/avatar.mjs'])assert.equal((await api.get(path)).status,404);
   assert.notEqual((await api.get('/avatar.js')).status,404);
+});
+
+test('sign 只返回签名头与上游地址，不下发 App Secret',async t=>{
+  const api=await client(t,()=>assert.fail('签名阶段不应请求上游'));
+  const config=await api.config();
+  const token=config.headers['X-Buwan-Avatar-Token'];
+  const payload={request_id:'sign-1',gateway_type:'default',config:{framedata_proto_version:2,walk_version:3}};
+  const response=await api.request('/api/avatar/sign','POST',payload,{'x-buwan-avatar-token':token});
+  assert.equal(response.status,200);
+  const signed=await response.json();
+  assert.equal(signed.url,avatarEndpoint);
+  assert.equal(signed.requestId,'sign-1');
+  assert.equal(typeof signed.body,'string');
+  assert.deepEqual(JSON.parse(signed.body),payload);
+  assert.equal(signed.headers['X-APP-ID'],credentials.appId);
+  assert.equal(typeof signed.headers['X-TOKEN'],'string');
+  assert.equal(signed.headers['X-TOKEN'].length,32);
+  const text=JSON.stringify(signed);
+  assert.equal(text.includes(credentials.appSecret),false);
+  assert.equal(text.includes('server-managed'),false);
+});
+
+test('sign 校验 token、request_id 与状态；activate 后才可停止会话',async t=>{
+  const api=await client(t,()=>assert.fail('签名阶段不应请求上游'));
+  const config=await api.config();
+  const token=config.headers['X-Buwan-Avatar-Token'];
+  const headers={'x-buwan-avatar-token':token};
+  assert.equal((await api.request('/api/avatar/sign','POST',{request_id:'x'},{'x-buwan-avatar-token':'wrong'})).status,403);
+  assert.equal((await api.request('/api/avatar/sign','POST',{request_id:''},headers)).status,400);
+  assert.equal((await api.request('/api/avatar/sign','POST',{request_id:'r'.repeat(201)},headers)).status,400);
+  assert.equal((await api.request('/api/avatar/sign','POST',{},headers)).status,400);
+  assert.equal((await api.request('/api/avatar/sign','POST',{request_id:'ok-1'},headers)).status,200);
+  assert.equal((await api.request('/api/avatar/sign','POST',{request_id:'ok-2'},headers)).status,409);
+  // 同一 request_id 重复使用（SDK 重连场景）时换发新 ID 避开上游房间判重，原始 ID 仍记录在案
+  const repeat=await api.request('/api/avatar/sign','POST',{request_id:'ok-1'},headers);
+  assert.equal(repeat.status,200);
+  const repeatId=(await repeat.json()).requestId;
+  assert.notEqual(repeatId,'ok-1');
+  assert.ok(repeatId.startsWith('ok-1-'));
+  assert.equal((await api.request('/api/avatar/activated','POST',{request_id:'ok-1'},headers)).status,403);
+  assert.equal((await api.request('/api/avatar/activated','POST',{request_id:repeatId},headers)).status,400);
+  assert.equal((await api.request('/api/avatar/activated','POST',{request_id:repeatId,session_id:'sess-9'},headers)).status,200);
+  assert.equal((await api.request('/api/avatar/activated','POST',{request_id:repeatId,session_id:'sess-9'},headers)).status,403);
+  const stop=await api.request('/api/avatar/session','DELETE',{stop_reason:'用户关闭',request_id:'ok-1',session_id:'sess-9'},headers);
+  assert.equal(stop.status,502);
+});
+
+test('sign/activate 强制同源与 JSON',async t=>{
+  const api=await client(t,()=>assert.fail('不应请求上游'));
+  const config=await api.config();
+  const token=config.headers['X-Buwan-Avatar-Token'];
+  const crossSite=await fetch(api.origin+'/api/avatar/sign',{method:'POST',headers:{origin:'https://evil.example','content-type':'application/json','x-buwan-avatar-token':token},body:'{}'});
+  assert.equal(crossSite.status,403);
+  const wrongType=await api.request('/api/avatar/activated','POST',{request_id:'r',session_id:'s'},{'x-buwan-avatar-token':token});
+  assert.equal(wrongType.status,403);
+  const notJson=await fetch(api.origin+'/api/avatar/sign',{method:'POST',headers:{origin:api.origin,'content-type':'text/plain','x-buwan-avatar-token':token},body:'{}'});
+  assert.equal(notJson.status,415);
 });

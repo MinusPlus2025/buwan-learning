@@ -446,7 +446,8 @@ test('SDK 错误消息和非在线状态释放连接，网络恢复通知不能�
     assert.equal(sdk.destroyCount, 1);
     assert.equal(JSON.stringify(h.states).includes('test-local-token'), false);
   }
-  for (const status of [1, 3, 4, 5, 7]) {
+  // 仅 close(4) 与 stopped(7) 是终态：释放连接且后续 online 通知不能假报 ready。
+  for (const status of [4, 7]) {
     const h = harness();
     const sdk = await online(h);
     sdk.options.onStatusChange(status);
@@ -454,6 +455,17 @@ test('SDK 错误消息和非在线状态释放连接，网络恢复通知不能�
     assert.equal(sdk.destroyCount, 1);
     sdk.options.onStatusChange(0);
     assert.equal(h.controller.getState().status, 'error');
+  }
+  // offline(1)/network_on(2)/network_off(3)/visible(5)/invisible(6) 均为正常状态，不能释放连接。
+  for (const status of [1, 2, 3, 5, 6]) {
+    const h = harness();
+    const sdk = await online(h);
+    sdk.options.onStatusChange(status);
+    assert.equal(h.controller.getState().status, 'ready');
+    assert.equal(sdk.destroyCount, 0);
+    sdk.options.onStatusChange(0);
+    assert.equal(h.controller.getState().status, 'ready');
+    h.controller.disconnect();
   }
   const h = harness();
   const pending = h.controller.connect();

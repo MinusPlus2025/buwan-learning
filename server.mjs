@@ -1,5 +1,6 @@
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
+import {Readable} from 'node:stream';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {createSearch} from './search.mjs';
 import {createAvatarService} from './avatar.mjs';
@@ -14,6 +15,18 @@ function requestHosts(req){
     .flatMap(value=>String(value).split(','))
     .map(value=>value.trim())
     .filter(Boolean);
+}
+// 透传浏览器请求头给上游：星云后端依据 Origin/UA/sec-fetch 等头
+// 判定客户端类型，缺省时会把会话归类为后端类型而拒绝 WebSocket 接入。
+const HOP_BY_HOP=new Set(['host','connection','content-length','transfer-encoding','keep-alive','proxy-authenticate','proxy-authorization','te','trailer','upgrade','x-buwan-avatar-token','x-forwarded-for','x-forwarded-proto','x-real-ip']);
+function pickClientHeaders(headers){
+  const picked={};
+  for(const [name,value] of Object.entries(headers||{})){
+    if(HOP_BY_HOP.has(name))continue;
+    if(Array.isArray(value)){if(value.length)picked[name]=value.join(', ');continue;}
+    if(typeof value==='string')picked[name]=value;
+  }
+  return picked;
 }
 function sameOrigin(req){
   if(req.headers['sec-fetch-site']==='cross-site')return false;
@@ -98,15 +111,16 @@ export function createServer({fetchImpl=fetch,searchOptions={braveApiKey:process
   const server=http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','no-referrer');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; img-src 'self' data: blob: https://*.xingyun3d.com https://*.youyan.xyz; media-src 'self' data: blob: https://*.xingyun3d.com https://*.youyan.xyz; script-src 'self' https://cdn.jsdelivr.net https://media.xingyun3d.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://buwan-learning.app.workbuddy.host https://*.xingyun3d.com wss://*.xingyun3d.com https://*.youyan.xyz wss://*.youyan.xyz; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+    res.setHeader('Content-Security-Policy',"default-src 'self'; img-src 'self' data: blob: https://*.xingyun3d.com https://*.youyan.xyz; media-src 'self' data: blob: https://*.xingyun3d.com https://*.youyan.xyz; script-src 'self' blob: https://cdn.jsdelivr.net https://media.xingyun3d.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://buwan-learning.app.workbuddy.host https://*.xingyun3d.com wss://*.xingyun3d.com https://*.youyan.xyz wss://*.youyan.xyz; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
     const path=new URL(req.url,'http://localhost').pathname;
     if(req.method==='GET'&&path==='/api/health')return json(res,200,{status:'up',product:'不晚',searchConfigured:true,searchProvider,searchScope,webSearchConfigured,aiEnhancement:'由前端云模型SDK提供；服务端不提供通用模型代理。'});
     if(req.method==='GET'&&path==='/api/capabilities')return json(res,200,{search:{configured:true,provider:searchProvider,scope:searchScope,webSearchConfigured},avatar:avatarService.capability});
-    if((req.method==='POST'&&path==='/api/avatar/config')||(['POST','DELETE'].includes(req.method)&&path==='/api/avatar/session')){
+    if((req.method==='POST'&&['/api/avatar/config','/api/avatar/sign','/api/avatar/activated'].includes(path))||(['POST','DELETE'].includes(req.method)&&path==='/api/avatar/session')){
       if(!sameOrigin(req))return json(res,403,{error:'来源不允许'});
       if(!/^application\/json(?:\s*;|$)/i.test(String(req.headers['content-type']||'')))return json(res,415,{error:'需要JSON输入'});
       const token=req.headers['x-buwan-avatar-token'];
-      const disconnected=()=>{if(!res.writableFinished)void avatarService.release(token);};
+      const clientHeaders=pickClientHeaders(req.headers);
+      const disconnected=()=>{if(!res.writableFinished)void avatarService.release(token,clientHeaders);};
       try{
         const input=await body(req);
         if(path==='/api/avatar/config'){
@@ -114,13 +128,46 @@ export function createServer({fetchImpl=fetch,searchOptions={braveApiKey:process
           return json(res,result.status,result.value);
         }
         res.once('close',disconnected);
-        const result=await avatarService.session(req.method,token,input);
+        if(path==='/api/avatar/sign'){
+          const result=await avatarService.sign(token,input);
+          if(res.destroyed)return;
+          return json(res,result.status,result.value);
+        }
+        if(path==='/api/avatar/activated'){
+          const result=await avatarService.activate(token,input);
+          if(res.destroyed)return;
+          return json(res,result.status,result.value);
+        }
+        const result=await avatarService.session(req.method,token,input,clientHeaders);
         if(res.destroyed)return;
         return json(res,result.status,result.value);
       }catch(error){
         if(res.destroyed)return;
         return json(res,[400,413].includes(error.status)?error.status:502,{error:[400,413].includes(error.status)?error.message:'数字人请求失败'});
       }
+    }
+    if(req.method==='GET'&&path.startsWith('/api/avatar/asset/')){
+      const assetPath=path.slice('/api/avatar/asset/'.length);
+      if(!/^avatar_sdk_prod\/[\w\-./]+$/.test(assetPath)||assetPath.includes('..'))return json(res,403,{error:'不允许的资源路径'});
+      try{
+        const headers={};
+        if(req.headers.range)headers.Range=req.headers.range;
+        const response=await fetchImpl('https://public-xmov.oss-cn-hangzhou.aliyuncs.com/'+assetPath,{headers,redirect:'error'});
+        if(process.env.AVATAR_ASSET_DEBUG)console.log('[asset]',assetPath.slice(0,80),'->',response.status,response.headers.get('content-length')||'');
+        if(!response.ok&&response.status!==206)return json(res,response.status===404?404:502,{error:'资源获取失败'});
+        const length=response.headers.get('content-length');
+        const range=response.headers.get('content-range');
+        res.writeHead(response.status,{
+          'Content-Type':response.headers.get('content-type')||'application/octet-stream',
+          ...(length?{'Content-Length':length}:{}),
+          ...(range?{'Content-Range':range}:{}),
+          'Accept-Ranges':'bytes',
+          'Cache-Control':'public, max-age=86400'
+        });
+        if(response.body)Readable.fromWeb(response.body).pipe(res);
+        else res.end();
+      }catch{return json(res,502,{error:'资源代理失败'});}
+      return;
     }
     if(req.method==='POST'&&['/api/search','/api/validate-result'].includes(path)){
       if(!sameOrigin(req))return json(res,403,{error:'来源不允许'});
