@@ -3036,7 +3036,7 @@ body,
 }
 
 @media (max-width: 760px) {
-  .rail { background: rgba(255, 248, 240, .98); }
+  .rail { background: var(--paper); }
   .app-shell { padding-top: 14px; }
   .hero { min-height: 0; padding-bottom: 16px; }
   .hero-art { height: 200px; margin-top: 12px; }
@@ -3053,7 +3053,9 @@ body,
 
 /* A working studio: the visitor's own idea is the first interaction. */
 html { scroll-padding-top: 90px; }
-.rail { background: rgba(255, 248, 240, .94); }
+@media (min-width: 761px) {
+  .rail { background: rgba(255, 248, 240, .94); }
+}
 .hero { position: relative; border: 0; }
 .hero h1 { font-weight: 650; }
 .hero h1 em { position: relative; }
