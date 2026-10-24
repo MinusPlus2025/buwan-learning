@@ -34,6 +34,17 @@ test('部署网关改写 Host 时，同源浏览器请求不被误拦',async t=>
   assert.doesNotMatch(result.body,/来源不允许/);
 });
 
+test('部署网关改写 Host 且不回传转发头时，公网 Origin 仍通过',async t=>{
+  const port=await serve(t);
+  const publicHost='buwan-learning.app.workbuddy.host';
+  // 线上真实形态：网关只把 Host 改写成内部地址，不回传 x-forwarded-host / :authority。
+  const withOrigin=await raw(port,{host:'internal.container:8080',origin:`https://${publicHost}`});
+  assert.notEqual(withOrigin.status,403,'公网同源请求不应被拦截');
+  assert.doesNotMatch(withOrigin.body,/来源不允许/);
+  const withReferer=await raw(port,{host:'internal.container:8080',referer:`https://${publicHost}/?sharecode=ONOZ6NNVMJ`});
+  assert.notEqual(withReferer.status,403,'缺 Origin 但有公网 Referer 不应被拦截');
+});
+
 test('直连场景（无转发头）同源请求仍然通过',async t=>{
   const port=await serve(t);
   const origin=`http://127.0.0.1:${port}`;
@@ -60,8 +71,11 @@ test('缺少 Origin 与 Referer 时仍然被拦截',async t=>{
   assert.equal(result.status,403);
 });
 
-test('X-Forwarded-Host 与 Origin 不一致时仍然被拦截',async t=>{
+test('相似域名与跨源 Origin 仍然被拦截',async t=>{
   const port=await serve(t);
-  const result=await raw(port,{host:'internal.container:8080','x-forwarded-host':'other.example.com',origin:'https://buwan-learning.app.workbuddy.host'});
-  assert.equal(result.status,403);
+  for(const origin of ['https://evil.example.com','https://buwan-learning.app.workbuddy.host.evil.example.com','https://app.workbuddy.host','ftp://buwan-learning.app.workbuddy.host']){
+    const result=await raw(port,{host:'internal.container:8080',origin});
+    assert.equal(result.status,403,origin);
+    assert.match(result.body,/来源不允许/);
+  }
 });

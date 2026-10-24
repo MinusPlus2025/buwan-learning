@@ -28,6 +28,11 @@ function pickClientHeaders(headers){
   }
   return picked;
 }
+// 部署网关（CloudStudio）把 Host 改写成内部地址，且不回传 x-forwarded-host / :authority，
+// 公网域名的 Origin 永远匹配不上请求头宿主。除请求头住格外，额外接受已知公网域名
+// （可用 PUBLIC_ORIGINS 覆盖，逗号分隔）；跨源、cross-site、缺来源仍一律拦截。
+const publicOrigins=(process.env.PUBLIC_ORIGINS||'buwan-learning.app.workbuddy.host')
+  .split(',').map(value=>value.trim().toLowerCase()).filter(Boolean);
 function sameOrigin(req){
   if(req.headers['sec-fetch-site']==='cross-site')return false;
   const origin=req.headers.origin;
@@ -36,7 +41,8 @@ function sameOrigin(req){
   try{
     const url=new URL(source);
     if(!['http:','https:'].includes(url.protocol))return false;
-    return requestHosts(req).includes(url.host);
+    const host=url.host.toLowerCase();
+    return requestHosts(req).some(value=>value.toLowerCase()===host)||publicOrigins.includes(host);
   }catch{return false;}
 }
 async function body(req,max=32*1024){
