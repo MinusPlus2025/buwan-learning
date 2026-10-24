@@ -7,12 +7,24 @@ const root=fileURLToPath(new URL('./public/',import.meta.url));
 const port=Number(process.env.PORT||4173);
 const host=process.env.HOST||'127.0.0.1';
 function json(res,status,value){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}
+function requestHosts(req){
+  const candidates=[req.headers.host,req.headers['x-forwarded-host'],req.headers[':authority']];
+  return candidates
+    .filter(Boolean)
+    .flatMap(value=>String(value).split(','))
+    .map(value=>value.trim())
+    .filter(Boolean);
+}
 function sameOrigin(req){
   if(req.headers['sec-fetch-site']==='cross-site')return false;
   const origin=req.headers.origin;
   const source=origin||req.headers.referer;
   if(!source)return false;
-  try{const url=new URL(source);return url.host===req.headers.host&&['http:','https:'].includes(url.protocol);}catch{return false;}
+  try{
+    const url=new URL(source);
+    if(!['http:','https:'].includes(url.protocol))return false;
+    return requestHosts(req).includes(url.host);
+  }catch{return false;}
 }
 async function body(req,max=32*1024){
   let raw='';
