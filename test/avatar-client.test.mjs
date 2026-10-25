@@ -231,6 +231,8 @@ test('init Promise 完成仍要在线回调，进度只接受有限范围数值�
   assert.equal(h.controller.getState().status, 'connecting');
   sdk.options.onStatusChange(0);
   assert.equal((await pending).status, 'ready');
+  // 连上后不再保留进度，避免界面上停在 "100%"。
+  assert.equal(h.controller.getState().progress, undefined);
   h.time.tick(60000);
   assert.equal(h.controller.getState().status, 'ready');
   h.controller.disconnect();

@@ -247,7 +247,6 @@
       if (!active(attempt) || state.status !== 'connecting' || !attempt.sdk) return;
       if (!attempt.online || !(attempt.progress === 100 || attempt.initialized)) return;
       const next = { status: 'ready', detail: DETAILS.ready };
-      if (attempt.progress !== undefined) next.progress = attempt.progress;
       settle(attempt, next);
       publish(next);
       applyStageLayout(attempt);

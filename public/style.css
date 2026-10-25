@@ -683,6 +683,11 @@ h3 {
   background: rgba(255, 254, 250, .72);
 }
 
+/* 左栏内容比右栏短，把"和学伴聊聊"压到底部，两栏底边对齐更稳。 */
+.starter-config { display: flex; flex-direction: column; }
+.starter-config .starter-field:last-of-type { margin-bottom: 18px; }
+.starter-config .starter-chat { margin-top: auto; }
+
 .starter-config h2 {
   max-width: 520px;
   margin-bottom: 20px;
@@ -3012,6 +3017,20 @@ body,
 .starter-option { border-color: var(--line-strong); }
 .starter-clock-ring { background: conic-gradient(var(--coral) var(--progress), var(--coral-soft) 0); }
 .starter-achievement { border-color: #D9BF88; color: var(--ink); background: #FBF0D9; }
+/* 完成那一刻给一次轻微上浮，让反馈被看见，而不是"页面闪了一下"。 */
+.starter-achievement.celebrate { animation: achievement-in .52s cubic-bezier(.2, .8, .3, 1) both; }
+@keyframes achievement-in {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+body.focus-mode .starter-achievement { margin-top: 20px; padding: 16px 18px; border-radius: 12px; font-size: 15px; line-height: 1.7; text-align: center; }
+/* 已完成时不再显示两个失效按钮，只留下一步选择。 */
+.starter-workbench.is-complete #starter-start,
+.starter-workbench.is-complete #starter-complete { display: none; }
+.starter-workbench.is-complete #starter-next { flex: 1 1 auto; background: var(--coral); border-color: transparent; color: #fff; font-weight: 650; }
+.starter-workbench.is-complete #starter-next:hover { background: #e0653f; }
+.starter-clock-ring.is-done { background: conic-gradient(var(--coral) 100%, var(--coral) 0); }
+.starter-clock-ring.is-done > span { color: var(--coral); font-size: 20px; font-weight: 650; letter-spacing: .04em; }
 
 .companion-stage { border-color: var(--line); background: #FBF0D9; }
 .stage-glow { border-color: rgba(139, 97, 43, .2); }
@@ -3158,6 +3177,15 @@ html { scroll-padding-top: 90px; }
   .companion-stage .avatar-service { padding: 16px; }
 }
 .companion-stage .avatar-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+/* 已连接时"连接数字人"这个按钮只剩一个失效状态，用上方状态文字表达即可，收起它把空间让给真正的动作。 */
+.companion-stage[data-avatar-state="ready"] #avatar-connect,
+.companion-stage[data-avatar-state="offline"] #avatar-connect { display: none; }
+.companion-stage[data-avatar-state="ready"] #avatar-disconnect,
+.companion-stage[data-avatar-state="offline"] #avatar-disconnect { grid-column: 1 / -1; grid-row: 2; }
+.companion-stage[data-avatar-state="ready"] #avatar-stop,
+.companion-stage[data-avatar-state="offline"] #avatar-stop { grid-column: 1; grid-row: 1; }
+.companion-stage[data-avatar-state="ready"] #avatar-offline,
+.companion-stage[data-avatar-state="offline"] #avatar-offline { grid-column: 2; grid-row: 1; }
 .avatar-controls .quiet-button { min-width: 0; min-height: 44px; padding: 10px 12px; font-size: 14px; white-space: normal; line-height: 1.5; transition: transform .18s, background-color .18s, box-shadow .18s; }
 .avatar-controls .quiet-button:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 5px 12px #392e2a0d; }
 .avatar-controls .quiet-button:not(:disabled):active { transform: scale(.97); }
@@ -3267,4 +3295,12 @@ body.focus-mode .interest-inspiration, body.focus-mode .studio-tabs, body.focus-
   .empty-steps { display: none; }
   .lounge-heading { margin-top: 44px; }
   #learning-history .starter-options { display: grid; }
+}
+
+/* 桌面端对话区：两栏各自保持自然高度，聊天栏占满一屏高，
+   否则它会被学伴栏拉长，消息与输入框之间出现一大块空白。 */
+@media (min-width: 1025px) {
+  .lounge-layout { align-items: start; }
+  .chat-lounge { min-height: min(660px, calc(100vh - 168px)); }
+  .chat-log { max-height: none; }
 }

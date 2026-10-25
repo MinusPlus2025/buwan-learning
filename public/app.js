@@ -457,6 +457,17 @@ function sameSource(left, right) {
   return left?.kind === right?.kind && left?.guideId === right?.guideId && left?.weekIndex === right?.weekIndex;
 }
 
+// "0 秒"读起来像没发生，换成对真实投入更友好的说法。
+function elapsedLabel(seconds) {
+  const value = Math.max(0, Number(seconds) || 0);
+  if (value < 60) return '实际用时 不到 1 分钟';
+  const minutes = Math.round(value / 60);
+  if (minutes < 60) return `实际用时 ${minutes} 分钟`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `实际用时 ${hours} 小时${rest ? ` ${rest} 分钟` : ''}`;
+}
+
 function sourcePracticed(source) {
   return readLearningRecords().some(item => item.completed && sameSource(item.source, source));
 }
@@ -535,7 +546,7 @@ function renderLearningHistory() {
     row.append(heading, el('p', 'history-task', item.task));
     const meta = el('div', 'history-meta');
     meta.append(el('span', '', sourceLabel(item.source)),
-      el('span', '', `实际用时 ${Math.round((item.elapsedSeconds || 0) * 10) / 10} 秒`));
+      el('span', '', elapsedLabel(item.elapsedSeconds)));
     if (item.completedAt) meta.append(el('span', '', `完成于 ${new Date(item.completedAt).toLocaleString('zh-CN')}`));
     else if (item.completed) meta.append(el('span', '', '旧记录未保存完成时间'));
     row.append(meta);
@@ -608,12 +619,23 @@ function updateStarterNote() {
 }
 
 function updateStarterClock() {
+  const ring = $('starter-clock-ring');
+  // 完成后剩余时间已经没有意义，把计时环收束成一个"完成"的完整圆环。
+  if (starter.completed) {
+    $('starter-clock').textContent = '完成';
+    ring.dataset.progress = '100';
+    ring.setAttribute('aria-label', '这一小步已完成');
+    ring.style.setProperty('--progress', '100%');
+    ring.classList.add('is-done');
+    return;
+  }
+  ring.classList.remove('is-done');
   const seconds = Math.max(0, Math.ceil(starter.remaining));
   $('starter-clock').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
   const progress = Math.round((1 - seconds / (starter.minutes * 60)) * 100);
-  $('starter-clock-ring').dataset.progress = String(progress);
-  $('starter-clock-ring').setAttribute('aria-label', `已进行 ${progress}%`);
-  $('starter-clock-ring').style.setProperty('--progress', `${progress}%`);
+  ring.dataset.progress = String(progress);
+  ring.setAttribute('aria-label', `已进行 ${progress}%`);
+  ring.style.setProperty('--progress', `${progress}%`);
 }
 
 function openStarter(interest, options = {}) {
@@ -638,6 +660,7 @@ function openStarter(interest, options = {}) {
   Object.assign(starter, { id: saved?.id || makeUuid(), day: saved?.day || todayKey(), source, interest, minutes, worry, remaining,
     deadline: 0, timer: null, running: false, started, completed: saved?.completed === true, completedAt: saved?.completedAt || null, fromGuide });
   $('starter-workbench').hidden = false;
+  $('starter-workbench').classList.toggle('is-complete', starter.completed);
   $('starter-title').textContent = `想学${interest}，先从这一小步试试`;
   const suggested = Object.hasOwn(STARTER_TASKS, interest) ? STARTER_TASKS[interest] : `为「${interest}」写下一个最想做到的小目标，再列出手边已有的条件和一个想问的问题。`;
   $('starter-task').value = text(saved?.task || options.task || suggested).slice(0, 2000);
@@ -669,6 +692,7 @@ function setFocusMode(active) {
 function resetStarter() {
   clearInterval(starter.timer);
   Object.assign(starter, { remaining: starter.minutes * 60, running: false, started: false, completed: false, deadline: 0 });
+  $('starter-workbench').classList.remove('is-complete');
   setFocusMode(false);
 }
 
@@ -677,7 +701,11 @@ function setupStarter() {
   $('learning-history-interest').addEventListener('input', renderLearningHistory);
   $('starter-next').addEventListener('click', () => openStarter(starter.interest, { fresh: true }));
   renderLearningHistory();
-  $('starter-exit-focus').addEventListener('click', () => setFocusMode(false));
+  $('starter-exit-focus').addEventListener('click', () => {
+    setFocusMode(false);
+    // 专注模式隐藏了页面上半部分，退出后要回到刚才那一小步，而不是把人丢回页面顶部。
+    $('starter-workbench').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
   $('starter-start').addEventListener('click', () => {
     if (starter.completed || starter.started && starter.remaining === 0) return;
     if (!$('starter-task').value.trim()) { $('starter-task').focus(); return; }
@@ -725,10 +753,14 @@ function setupStarter() {
     writeStarterProgress();
     updateStarterClock();
     $('starter-achievement').hidden = false;
+    $('starter-workbench').classList.add('is-complete');
+    // 完成反馈要留在眼前：不再自动退出专注模式，否则页面回到顶部，庆祝文案被甩到折叠线以下。
+    $('starter-achievement').classList.remove('celebrate');
+    void $('starter-achievement').offsetWidth;
+    $('starter-achievement').classList.add('celebrate');
     if (state.guide) renderGuide(state.guide, state.searchMeta || { results: [] }, { restoring: true });
     updateLearningSteps();
     setCompanionPresence('complete');
-    setFocusMode(false);
     $('starter-session-state').textContent = '本项已完成，可以继续另一项任务';
   });
   $('starter-task').addEventListener('input', writeStarterProgress);
@@ -1516,7 +1548,9 @@ function setupAvatar() {
       const active = status === 'connecting' || status === 'ready' || status === 'offline';
       $('companion-stage').dataset.avatarState = status;
       $('avatar-connect').textContent = status === 'connecting' ? '正在连接' : status === 'ready' || status === 'offline' ? '数字人已连接' : '连接数字人';
-      $('avatar-status').textContent = `${detail}${Number.isFinite(progress) ? ` ${Math.round(progress)}%` : ''}`;
+      // 进度只在加载阶段出现；连上之后停在 "100%" 只是噪音。
+      const percent = status === 'connecting' && Number.isFinite(progress) ? ` ${Math.round(progress)}%` : '';
+      $('avatar-status').textContent = `${detail}${percent}`;
       $('avatar-stage').hidden = status !== 'ready' && status !== 'offline';
       document.querySelector('.portrait-frame')?.setAttribute('aria-label', status === 'ready' ? '学伴对话状态' : '数字人尚未连接');
       $('avatar-connect').disabled = active;
