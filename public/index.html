@@ -7,8 +7,9 @@
   <meta name="description" content="不晚，陪你把想学的事变成今天能开始的一小步。">
   <title>不晚｜想学，什么时候都不晚</title>
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/design.css">
 </head>
-<body>
+<body class="v4">
   <a class="skip-link" href="#chat-input">跳到对话输入</a>
   <aside class="rail" aria-label="主导航">
     <a class="brand" href="#app" aria-label="不晚，回到首页">
@@ -132,63 +133,77 @@
     <div class="lounge-layout">
       <aside id="companion-stage" class="companion-stage" aria-labelledby="stage-title">
         <div class="stage-head">
-          <div>
-            <p class="eyebrow">YOUR LEARNING COMPANION</p>
-            <h2 id="stage-title"><span id="stage-companion-name">阿晚</span>，在这儿。</h2>
+          <div class="stage-identity">
+            <span class="stage-badge" id="stage-badge" aria-hidden="true">晚</span>
+            <div class="stage-identity-copy">
+              <h2 id="stage-title"><span id="stage-companion-name">阿晚</span>，在这儿。</h2>
+              <p class="stage-sub"><span id="companion-style-label">温柔陪伴</span><i aria-hidden="true">·</i><span>不催你</span></p>
+            </div>
           </div>
-          <div class="model-controls"><button id="model-state" class="model-state" type="button" role="status" title="重新连接学伴">连接中</button><div class="model-picker"><label for="model-select">对话模型</label><select id="model-select" aria-label="选择对话模型" disabled><option>正在获取模型</option></select></div></div>
+          <button id="model-state" class="model-state" type="button" role="status" title="重新连接学伴">连接中</button>
         </div>
 
-        <div class="portrait-frame" aria-label="数字人尚未连接">
-          <div class="stage-glow" aria-hidden="true"></div>
-          <div class="sound-orb" data-state="idle" aria-hidden="true">
-            <span class="sound-ring sound-ring-one"></span>
-            <span class="sound-ring sound-ring-two"></span>
-            <span class="sound-core"><i></i><i></i><i></i><i></i><i></i></span>
-            <span class="seed-sprout"><i></i><i></i><b></b></span>
+        <div class="stage-screen">
+          <div class="portrait-frame" aria-label="数字人尚未连接">
+            <div class="stage-glow" aria-hidden="true"></div>
+            <div class="sound-orb" data-state="idle" aria-hidden="true">
+              <span class="sound-ring sound-ring-one"></span>
+              <span class="sound-ring sound-ring-two"></span>
+              <span class="sound-core"><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="seed-sprout"><i></i><i></i><b></b></span>
+            </div>
+            <div class="portrait-caption">
+              <span class="caption-status"><i aria-hidden="true"></i><span id="companion-presence">等待连接</span></span>
+              <strong id="companion-state-title">学伴正在这里等你</strong>
+              <span id="companion-state-detail">先从一件想学的事开始</span>
+            </div>
+            <button id="avatar-cta" class="stage-cta" type="button">
+              <span>连接数字人，听 TA 开口说</span>
+              <small>不连接也可以只打字，随时可以断</small>
+            </button>
           </div>
-          <div class="portrait-caption">
-            <span class="caption-status"><i aria-hidden="true"></i><span id="companion-presence">等待连接</span></span>
-            <strong id="companion-state-title">学伴正在这里等你</strong>
-            <span id="companion-state-detail">先从一件想学的事开始</span>
+          <div id="avatar-stage" class="avatar-stage" hidden aria-label="实时数字人画面"></div>
+          <div id="avatar-overlay" class="stage-overlay" hidden>
+            <div class="stage-overlay-inner">
+              <span class="overlay-pulse" aria-hidden="true"><i></i></span>
+              <strong id="avatar-overlay-title">正在连接数字人</strong>
+              <p id="avatar-overlay-detail">首次加载形象资源约需 10–20 秒</p>
+              <div class="overlay-progress" aria-hidden="true"><span id="avatar-progress-bar"></span></div>
+              <button id="avatar-retry" class="primary-button" type="button" hidden>重新连接</button>
+            </div>
           </div>
+          <div id="stage-caption" class="stage-caption" aria-live="polite" hidden></div>
         </div>
 
-        <div class="avatar-service">
-        <div class="avatar-service-heading"><span>数字人陪伴</span><span class="avatar-service-hint">可选连接</span></div>
-        <div id="avatar-stage" class="avatar-stage" hidden aria-label="实时数字人画面"></div>
-        <p id="avatar-status" class="source-note" role="status">数字人未连接；点击连接后才会启用服务。</p>
-        <div class="starter-options avatar-controls" role="group" aria-label="数字人控制">
-          <button id="avatar-connect" class="quiet-button" type="button">连接数字人</button>
-          <button id="avatar-stop" class="quiet-button" type="button" disabled>打断播报</button>
-          <button id="avatar-disconnect" class="quiet-button" type="button" disabled>断开连接</button>
-          <button id="avatar-offline" class="quiet-button" type="button" disabled>切换离线</button>
-        </div>
-        <details class="service-details"><summary>数字人开通与使用</summary><ol class="avatar-setup-steps"><li>登录<a href="https://xingyun3d.com/" target="_blank" rel="noopener noreferrer">魔珐星云</a>，进入右上角“福利中心”，兑换比赛邀请码 <strong>XJBAB9YSTU</strong>，领取 1000 星云积分。</li><li>在控制台的“应用管理 → 驱动应用”创建应用，选择形象、场景、音色和表演，并保存 App ID 与 App Secret。</li><li>将两项凭据配置在服务端环境变量 <code>XINGYUN_APP_ID</code> 和 <code>XINGYUN_APP_SECRET</code>，不要放进浏览器代码。</li><li>点击“连接数字人”；连接后，开启语音时 AI 回复会由数字人播报。可随时打断或切到离线。</li></ol><p class="source-note">离线模式循环播放缓存视频，不消耗积分；恢复在线后可继续实时播报。离开页面会断开连接。</p><p class="source-note">依据<a href="https://xingyun3d.com/developers/52-194" target="_blank" rel="noopener noreferrer">魔珐星云《从零到一教学》</a>及 ACC 2026 活动方案。邀请码只用于兑换积分，不是应用密钥。</p></details>
-
+        <div class="stage-foot">
+          <p id="avatar-status" class="source-note stage-status" role="status">数字人未连接；点击连接后才会启用服务。</p>
+          <div class="starter-options avatar-controls" role="group" aria-label="数字人控制">
+            <button id="avatar-connect" class="avatar-ctrl is-primary" type="button">连接数字人</button>
+            <button id="avatar-stop" class="avatar-ctrl" type="button" disabled>打断播报</button>
+            <button id="avatar-disconnect" class="avatar-ctrl" type="button" disabled>断开</button>
+            <button id="avatar-offline" class="avatar-ctrl" type="button" disabled>切换离线</button>
+          </div>
+          <div class="stage-model-row">
+            <label for="model-select">对话模型</label>
+            <select id="model-select" aria-label="选择对话模型" disabled><option>正在获取模型</option></select>
+          </div>
+          <label class="avatar-auto"><input id="avatar-auto" type="checkbox"><span>打开页面时自动连接数字人</span></label>
+          <details class="service-details"><summary>数字人开通与使用</summary><ol class="avatar-setup-steps"><li>登录<a href="https://xingyun3d.com/" target="_blank" rel="noopener noreferrer">魔珐星云</a>，进入右上角“福利中心”，兑换比赛邀请码 <strong>XJBAB9YSTU</strong>，领取 1000 星云积分。</li><li>在控制台的“应用管理 → 驱动应用”创建应用，选择形象、场景、音色和表演，并保存 App ID 与 App Secret。</li><li>将两项凭据配置在服务端环境变量 <code>XINGYUN_APP_ID</code> 和 <code>XINGYUN_APP_SECRET</code>，不要放进浏览器代码。</li><li>点击“连接数字人”；连接后，开启语音时 AI 回复会由数字人播报。可随时打断或切到离线。</li></ol><p class="source-note">离线模式循环播放缓存视频，不消耗积分；恢复在线后可继续实时播报。离开页面会断开连接。</p><p class="source-note">依据<a href="https://xingyun3d.com/developers/52-194" target="_blank" rel="noopener noreferrer">魔珐星云《从零到一教学》</a>及 ACC 2026 活动方案。邀请码只用于兑换积分，不是应用密钥。</p></details>
         </div>
 
         <blockquote id="companion-motto">“不催你。我们只找今天能迈出的第一步。”</blockquote>
         <div class="stage-meta">
-          <span id="companion-style-label">温柔陪伴</span>
-          <span class="stage-rule"></span>
           <span id="conversation-id-short">新会话</span>
-        </div>
-
-        <div class="demo-section">
-          <div class="section-line">
-            <p class="eyebrow">从别人的「还没开始」看看</p>
-            <span>演示会真实生成手册</span>
-          </div>
-          <div id="demo-list" class="demo-list"></div>
+          <span class="stage-rule"></span>
+          <span>对话仅存本浏览器</span>
         </div>
       </aside>
 
       <section class="chat-lounge" aria-labelledby="chat-title">
         <div class="chat-head">
-          <div>
-            <p class="eyebrow">02 · 一对一伙伴会客厅</p>
+          <div class="chat-head-copy">
             <h2 id="chat-title">先聊聊，为什么是这件事。</h2>
+            <p>每次只聊一个问题，不急着一次想清楚。</p>
           </div>
           <button id="cancel-request" class="quiet-button" type="button" hidden>取消回应</button>
         </div>
@@ -201,31 +216,59 @@
 
         <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-relevant="additions text"></div>
 
+        <div id="quick-prompts" class="quick-prompts" aria-label="可以这样开始">
+          <span class="quick-label">可以这样开始</span>
+          <button id="quick-1" class="quick-chip" type="button">我怕坚持不下来</button>
+          <button id="quick-2" class="quick-chip" type="button">不知道从哪一步开始</button>
+          <button id="quick-3" class="quick-chip" type="button">每天只有十分钟</button>
+        </div>
+
+        <div id="unlock-panel" class="unlock-panel" aria-live="polite">
+          <div class="unlock-copy">
+            <span id="turn-count" class="turn-count">0 / 3</span>
+            <div class="unlock-text"><strong>聊满 3 轮，展开你的开始手册</strong><span>一次一个问题，不急着想清楚。</span></div>
+          </div>
+          <button id="generate-guide" class="primary-button" type="button" disabled>展开开始手册 <span aria-hidden="true">→</span></button>
+        </div>
+
         <div class="composer-wrap">
-          <p id="privacy-note" class="privacy-note">发送后，内容会交给模型处理。对话和草稿保存在本浏览器；生成手册时会检索公开页面；全网检索是否可用取决于服务配置。数字人仅在你点击连接后启用。请勿发送隐私信息。</p>
           <div class="composer">
-            <button id="voice-input" class="icon-button voice-button" type="button" title="语音输入" aria-label="语音输入">
-              <svg class="microphone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M6 10v2a6 6 0 0 0 12 0v-2M12 18v3M9 21h6"></path></svg>
-            </button>
             <label class="sr-only" for="chat-input">和学伴说说你想学什么或为什么现在想开始</label>
             <textarea id="chat-input" rows="2" maxlength="500" placeholder="说说你想学什么，或为什么现在想开始…" aria-describedby="privacy-note chat-status"></textarea>
-            <button id="send-message" class="send-button" type="button" aria-label="发送消息">发送</button>
+            <div class="composer-bar">
+              <div class="composer-tools">
+                <button id="voice-input" class="icon-button voice-button" type="button" title="语音输入" aria-label="语音输入">
+                  <svg class="microphone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M6 10v2a6 6 0 0 0 12 0v-2M12 18v3M9 21h6"></path></svg>
+                </button>
+                <span id="input-count" class="input-count">0 / 500</span>
+              </div>
+              <button id="send-message" class="send-button" type="button" aria-label="发送消息">
+                <span>发送</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M12 5l7 7-7 7"></path></svg>
+              </button>
+            </div>
           </div>
           <div class="composer-footer">
             <p id="chat-status" class="chat-status" role="status">写下你的学习愿望，或者直接和学伴说说。</p>
-            <span id="input-count">0 / 500</span>
+            <details class="privacy-details">
+              <summary>数据与隐私</summary>
+              <p id="privacy-note" class="privacy-note">发送后，内容会交给模型处理。对话和草稿保存在本浏览器；生成手册时会检索公开页面；全网检索是否可用取决于服务配置。数字人仅在你点击连接后启用。请勿发送隐私信息。</p>
+            </details>
           </div>
         </div>
       </section>
     </div>
 
-    <div id="unlock-panel" class="unlock-panel" aria-live="polite">
-      <div class="unlock-copy">
-        <span id="turn-count" class="turn-count">0 / 3</span>
-        <p><strong>聊满 3 轮，展开你的开始手册</strong><span>每次只聊一个问题，不急着一次想清楚。</span></p>
+    <section class="demo-section" aria-labelledby="demo-heading">
+      <div class="section-line">
+        <div>
+          <p class="eyebrow">FROM OTHER FRESH STARTS</p>
+          <h2 id="demo-heading">从别人的「还没开始」看看</h2>
+        </div>
+        <span>演示会真实生成手册</span>
       </div>
-      <button id="generate-guide" class="primary-button" type="button" disabled>展开开始手册 <span aria-hidden="true">→</span></button>
-    </div>
+      <div id="demo-list" class="demo-list"></div>
+    </section>
 
     <section id="guide-section" class="guide-section" aria-labelledby="guide-heading" hidden>
       <div class="guide-intro">

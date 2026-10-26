@@ -106,10 +106,11 @@ function el(tag, className, content) {
 function setStatus(message, isError = false) {
   const guideState = state.guideStatus === 'interrupted' ? '上次手册生成未完成，可重新生成。'
     : state.guideStatus === 'failed' ? '上次手册生成失败，可重试。' : '';
+  // 存储说明只在异常或确有提示时才追加，避免每句话后面都拖一条长尾巴。
   const storage = state.storageAvailable
-    ? `${state.restored ? `已从本浏览器恢复；${guideState}` : ''}会话与草稿仅保存在本浏览器（最近 40 条消息）。`
+    ? (state.restored && guideState ? guideState : '')
     : '本地保存不可用，刷新后可能丢失，请勿关闭页面。';
-  $('chat-status').textContent = `${message} ${storage}`;
+  $('chat-status').textContent = storage ? `${message} ${storage}` : message;
   $('chat-status').classList.toggle('error', isError || !state.storageAvailable);
 }
 
@@ -284,7 +285,9 @@ function updateCompanionUi() {
   $('header-companion-name').textContent = name;
   $('stage-companion-name').textContent = name;
   $('companion-style-label').textContent = STYLES[style].label;
-  document.querySelectorAll('.message.assistant .avatar').forEach(node => { node.textContent = name.slice(0, 2); });
+  const badge = $('stage-badge');
+  if (badge) badge.textContent = name.slice(0, 1);
+  document.querySelectorAll('.message.assistant .avatar').forEach(node => { node.textContent = name.slice(0, 1); });
   document.querySelectorAll('.message.assistant .speaker-name').forEach(node => { node.textContent = name; });
 }
 
@@ -898,14 +901,15 @@ function renderDemos() {
 function appendMessage(role, content, options = {}) {
   const message = el('article', `message ${role}${options.loading ? ' loading' : ''}`);
   message.dataset.role = role;
-  const avatar = el('div', 'avatar', role === 'assistant' ? state.companion.name.slice(0, 2) : '我');
+  const avatar = el('div', 'avatar', role === 'assistant' ? state.companion.name.slice(0, 1) : '我');
   avatar.setAttribute('aria-hidden', 'true');
   const body = el('div', 'message-body');
   const meta = el('div', 'message-meta');
   const speaker = el('strong', role === 'assistant' ? 'speaker-name' : '', role === 'assistant' ? state.companion.name : (state.companion.userTitle || '你'));
-  const kind = el('span', '', options.demo ? '演示对话' : role === 'assistant' ? '学伴' : '你说');
+  const kind = options.demo ? el('span', 'message-tag', '演示') : null;
   const copy = el('p', 'message-text', content);
-  meta.append(speaker, kind);
+  meta.append(speaker);
+  if (kind) meta.append(kind);
   body.append(meta, copy);
   message.append(avatar, body);
   $('chat-log').append(message);
@@ -952,12 +956,19 @@ function updateLearningSteps() {
   });
 }
 
+function updateQuickPrompts() {
+  const box = $('quick-prompts');
+  if (!box) return;
+  box.hidden = state.messages.some(item => item.role === 'user');
+}
+
 function updateUnlock() {
   const count = Math.min(state.userTurns, 3);
   $('turn-count').textContent = `${count} / 3`;
   $('generate-guide').disabled = state.userTurns < 3 || state.busy || state.generating;
   $('generate-guide').textContent = state.generating ? '正在展开…' : '展开开始手册 →';
   updateLearningSteps();
+  updateQuickPrompts();
 }
 
 function initialGreeting() {
@@ -1647,9 +1658,66 @@ function trapDialogFocus(dialog, event) {
 }
 
 let avatarController = null;
+const AVATAR_AUTO_KEY = 'buwan.avatarAuto';
+
+function readAvatarAuto() {
+  try { return localStorage.getItem(AVATAR_AUTO_KEY) === 'on'; } catch { return false; }
+}
+
+function writeAvatarAuto(value) {
+  try {
+    if (value) localStorage.setItem(AVATAR_AUTO_KEY, 'on');
+    else localStorage.removeItem(AVATAR_AUTO_KEY);
+  } catch { /* 本地存储不可用时只在本次会话生效。 */ }
+}
+
+// 舞台上的状态层：连接中给进度，失败给原因与重试，连上后让位给实时画面。
+function setAvatarOverlay(status, detail, progress) {
+  const overlay = $('avatar-overlay');
+  if (!overlay) return;
+  if (!status) {
+    overlay.hidden = true;
+    return;
+  }
+  overlay.hidden = false;
+  overlay.dataset.state = status;
+  const percent = Number.isFinite(progress) ? Math.max(2, Math.min(100, Math.round(progress))) : null;
+  if (status === 'connecting') {
+    $('avatar-overlay-title').textContent = '正在连接数字人';
+    $('avatar-overlay-detail').textContent = percent !== null
+      ? `正在加载形象资源 ${percent}%`
+      : '首次加载形象资源约需 10–20 秒';
+    $('avatar-progress-bar').style.width = `${percent !== null ? percent : 6}%`;
+    $('avatar-retry').hidden = true;
+  } else {
+    $('avatar-overlay-title').textContent = '数字人这次没连上';
+    $('avatar-overlay-detail').textContent = `${detail || '网络或服务暂时不可用。'}可以继续用文字和语音聊，稍后再试。`;
+    $('avatar-progress-bar').style.width = '0%';
+    $('avatar-retry').hidden = false;
+  }
+}
+
+function showCaption(content) {
+  const bar = $('stage-caption');
+  if (!bar) return;
+  const clean = String(content || '').replace(/\s+/g, ' ').trim();
+  if (!clean) { bar.hidden = true; return; }
+  bar.textContent = clean.length > 90 ? `${clean.slice(0, 90)}…` : clean;
+  bar.hidden = false;
+}
+
+function hideCaption() {
+  const bar = $('stage-caption');
+  if (bar) { bar.hidden = true; bar.textContent = ''; }
+}
 
 function setupAvatar() {
   if (!window.BuwanAvatar?.createController) return;
+  const autoBox = $('avatar-auto');
+  if (autoBox) {
+    autoBox.checked = readAvatarAuto();
+    autoBox.addEventListener('change', () => writeAvatarAuto(autoBox.checked));
+  }
   avatarController = window.BuwanAvatar.createController({
     onState({ status, detail, progress }) {
       const active = status === 'connecting' || status === 'ready' || status === 'offline';
@@ -1657,7 +1725,8 @@ function setupAvatar() {
       $('avatar-connect').textContent = status === 'connecting' ? '正在连接' : status === 'ready' || status === 'offline' ? '数字人已连接' : '连接数字人';
       // 进度只在加载阶段出现；连上之后停在 "100%" 只是噪音。
       const percent = status === 'connecting' && Number.isFinite(progress) ? ` ${Math.round(progress)}%` : '';
-      $('avatar-status').textContent = `${detail}${percent}`;
+      const spokenHint = status === 'ready' && !state.ttsEnabled ? ' 点右上角「语音」，回复就由 TA 说出来。' : '';
+      $('avatar-status').textContent = `${detail}${percent}${spokenHint}`;
       $('avatar-stage').hidden = status !== 'ready' && status !== 'offline';
       document.querySelector('.portrait-frame')?.setAttribute('aria-label', status === 'ready' ? '学伴对话状态' : '数字人尚未连接');
       $('avatar-connect').disabled = active;
@@ -1665,11 +1734,23 @@ function setupAvatar() {
       $('avatar-stop').disabled = status !== 'ready';
       $('avatar-offline').disabled = status !== 'ready' && status !== 'offline';
       $('avatar-offline').textContent = status === 'offline' ? '切换在线' : '切换离线';
+      if (status === 'connecting') setAvatarOverlay('connecting', detail, progress);
+      else if (!active && status !== 'disconnected') setAvatarOverlay('error', detail);
+      else setAvatarOverlay(null);
+      if (status !== 'ready' && status !== 'offline') hideCaption();
       if (!active) { state.speaking = false; $('tts-toggle').disabled = false; }
     },
-    onSpeaking(value) { state.speaking = value; setCompanionPresence(value ? 'responding' : state.busy ? 'thinking' : 'idle'); }
+    onSpeaking(value) {
+      state.speaking = value;
+      $('companion-stage').dataset.speaking = String(value);
+      setCompanionPresence(value ? 'responding' : state.busy ? 'thinking' : 'idle');
+      if (!value) hideCaption();
+    }
   });
-  $('avatar-connect').addEventListener('click', () => { stopSpeech(); void avatarController.connect(); });
+  const connect = () => { stopSpeech(); void avatarController.connect(); };
+  $('avatar-connect').addEventListener('click', connect);
+  $('avatar-cta').addEventListener('click', connect);
+  $('avatar-retry').addEventListener('click', connect);
   $('avatar-stop').addEventListener('click', stopSpeech);
   $('avatar-offline').addEventListener('click', () => {
     const offline = avatarController.setOffline(avatarController.getState().status !== 'offline');
@@ -1679,6 +1760,7 @@ function setupAvatar() {
   const disconnect = () => { stopRecognition(); stopSpeech(); avatarController.disconnect(); };
   window.addEventListener('pagehide', disconnect);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') disconnect(); });
+  if (readAvatarAuto()) setTimeout(connect, 900);
 }
 
 function browserVoices() {
@@ -1752,6 +1834,7 @@ function stopSpeech() {
   avatarController?.stop();
   state.utterance = null;
   state.speaking = false;
+  hideCaption();
   $('tts-toggle').disabled = false;
   $('preview-voice').disabled = !browserVoices().length;
   $('stop-preview').disabled = true;
@@ -1788,6 +1871,7 @@ function speak(content) {
   stopSpeech();
   if (avatarController?.getState().status === 'ready') {
     if (!avatarController.speak(content)) setStatus('数字人播报失败，文字回复仍然保留。', true);
+    else showCaption(content);
     return;
   }
   if (!('speechSynthesis' in window)) return;
@@ -2140,6 +2224,17 @@ function setupEvents() {
   });
   [$('companion-dialog'), $('consent-dialog')].forEach(dialog => {
     dialog.addEventListener('keydown', event => trapDialogFocus(dialog, event));
+  });
+  [['quick-1', '我怕坚持不下来'], ['quick-2', '不知道从哪一步开始'], ['quick-3', '每天只有十分钟']].forEach(([id, phrase]) => {
+    const chip = $(id);
+    if (!chip) return;
+    chip.addEventListener('click', () => {
+      if ($('chat-input').disabled) return;
+      $('chat-input').value = phrase;
+      $('input-count').textContent = `${phrase.length} / 500`;
+      $('chat-input').focus();
+      setStatus('可以按这句话说，也可以改成你自己的说法。');
+    });
   });
   setupRecognition();
   setupStarter();
