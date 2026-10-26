@@ -21,11 +21,15 @@
       <a class="nav-link" href="#interest-inspiration" aria-label="发现兴趣"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m16 8-2.5 5.5L8 16l2.5-5.5z"/></svg><span>发现兴趣</span></a>
       <a class="nav-link" href="#conversation" aria-label="和学伴聊聊"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 4h16v13H9l-5 4zM8 9h8M8 13h5"/></svg><span>和学伴聊聊</span></a>
     </nav>
-    <div class="rail-foot"><span class="rail-flower" aria-hidden="true">✳</span><p>给喜欢的事，<br>留一点时间。</p><small>不晚 · 成人兴趣学习</small></div>
+    <div class="rail-foot">
+      <div class="rail-tally"><strong id="rail-count">0</strong><span>件</span></div>
+      <p>今天完成的<br>一小步</p>
+      <small id="rail-count-note">开始一次，就算数</small>
+    </div>
   </aside>
   <div class="workspace">
   <header class="topbar">
-    <div class="top-greeting"><span>一点好奇，就是开始</span><strong>欢迎来到你的练习室</strong></div>
+    <div class="top-greeting"><span id="topbar-date">今天</span><strong id="topbar-progress">还没有开始</strong></div>
     <div class="top-actions">
       <label class="large-text-control"><input id="large-text-toggle" type="checkbox" aria-label="切换大字显示"><span class="large-text-button">大字</span></label>
       <button id="open-companion" class="text-icon-button" type="button" aria-label="设置学伴">
@@ -50,8 +54,7 @@
           <p id="interest-help">任何想学的事都可以。先找到今天能完成的一小步。</p>
           <p id="interest-feedback" class="interest-feedback" role="status" aria-live="polite"></p>
         </form>
-        <div class="hero-actions"><a class="hero-chat-link" href="#conversation">还没想好？和学伴聊聊 <span aria-hidden="true">→</span></a><a class="hero-chat-link" href="#interest-inspiration">看看兴趣灵感 <span aria-hidden="true">↓</span></a></div>
-        <div class="hero-footnote"><span class="tiny-sun" aria-hidden="true"></span><span>从十分钟开始，按自己的节奏。</span></div>
+        <div class="hero-actions"><a class="hero-chat-link" href="#conversation">还没想好？和学伴聊聊 <span aria-hidden="true">→</span></a><a class="hero-chat-link hero-chat-link-quiet" href="#interest-inspiration">看看兴趣灵感</a></div>
       </div>
       <div class="hero-art" aria-label="兴趣桌面">
         <div class="desk-experience" aria-label="可以拖动的兴趣桌面，点琴键试听，点画本或植物选一个兴趣">
@@ -155,7 +158,7 @@
         </div>
 
         <div class="stage-foot">
-          <p id="avatar-status" class="source-note stage-status" role="status">数字人未连接；点击连接后才会启用服务。</p>
+          <p id="avatar-status" class="source-note stage-status" role="status" hidden>数字人未连接；点击连接后才会启用服务。</p>
           <div class="starter-options avatar-controls" role="group" aria-label="数字人控制">
             <button id="avatar-connect" class="avatar-ctrl is-primary" type="button">连接数字人</button>
             <button id="avatar-stop" class="avatar-ctrl" type="button" disabled>打断播报</button>

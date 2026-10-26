@@ -401,6 +401,18 @@ function todayKey() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+function formatDay(key) {
+  const [year, month, day] = String(key || '').split('-').map(Number);
+  return Number.isFinite(month) && Number.isFinite(day) ? `${month} 月 ${day} 日` : key;
+}
+
+function formatClock(iso) {
+  if (!iso) return '';
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+}
+
 function readLearningRecords() {
   if (learningRecords) return learningRecords;
   let records = [];
@@ -539,7 +551,7 @@ function renderLearningHistory() {
     const row = el('article', 'guide-card history-card');
     const heading = el('div', 'history-card-heading');
     const identity = el('div', 'history-identity');
-    const date = el('time', 'history-date', item.day);
+    const date = el('time', 'history-date', formatDay(item.day));
     date.setAttribute('datetime', item.day);
     identity.append(date, el('h3', 'history-card-title', item.interest));
     const status = item.completed ? '已完成' : item.id === starter.id && starter.running ? '进行中' : item.started ? '已暂停' : '待开始';
@@ -550,7 +562,7 @@ function renderLearningHistory() {
     const meta = el('div', 'history-meta');
     meta.append(el('span', '', sourceLabel(item.source)),
       el('span', '', elapsedLabel(item.elapsedSeconds)));
-    if (item.completedAt) meta.append(el('span', '', `完成于 ${new Date(item.completedAt).toLocaleString('zh-CN')}`));
+    if (item.completedAt) meta.append(el('span', '', `${formatClock(item.completedAt)} 完成`));
     else if (item.completed) meta.append(el('span', '', '旧记录未保存完成时间'));
     row.append(meta);
     const action = el('button', 'quiet-button', item.completed ? '带入一次复盘草稿' : '恢复这项任务');
@@ -574,6 +586,7 @@ function renderLearningHistory() {
     row.append(action);
     root.append(row);
   });
+  updateDailyTally();
 }
 const STARTER_TASKS = {
   '钢琴': '听一段你喜欢的钢琴旋律，选出最想学会的十秒钟，写下曲名。',
@@ -868,6 +881,7 @@ function setupStarter() {
     $('starter-achievement').classList.remove('celebrate');
     void $('starter-achievement').offsetWidth;
     $('starter-achievement').classList.add('celebrate');
+    playChime();
     if (state.guide) renderGuide(state.guide, state.searchMeta || { results: [] }, { restoring: true });
     updateLearningSteps();
     setCompanionPresence('complete');
@@ -882,6 +896,95 @@ function setupStarter() {
     $('chat-input').focus({ preventScroll: true });
     setStatus('已把你的选择带入对话，确认后发送给学伴。');
   });
+}
+
+/* 完成一小步的声音：两个上行音，音量很低，只做"这一下结束了"的确认。 */
+let chimeAudio = null;
+function playChime() {
+  try {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return;
+    chimeAudio = chimeAudio || new Ctor();
+    if (chimeAudio.state === 'suspended') void chimeAudio.resume();
+    const now = chimeAudio.currentTime;
+    [[523.25, 0], [783.99, .13]].forEach(([frequency, offset]) => {
+      const osc = chimeAudio.createOscillator();
+      const gain = chimeAudio.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = frequency;
+      gain.gain.setValueAtTime(.0001, now + offset);
+      gain.gain.linearRampToValueAtTime(.055, now + offset + .02);
+      gain.gain.exponentialRampToValueAtTime(.0001, now + offset + .85);
+      osc.connect(gain).connect(chimeAudio.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + .9);
+    });
+  } catch {
+    // 设备不支持音频时保持安静，不影响完成状态
+  }
+}
+
+/* 把今天真实发生过的事回填到侧栏和顶栏，而不是写欢迎语。 */
+function updateDailyTally() {
+  const today = todayKey();
+  const records = readLearningRecords().filter(item => item.day === today);
+  const done = records.filter(item => item.completed).length;
+  const active = records.filter(item => item.started && !item.completed).length;
+  const count = $('rail-count');
+  if (count) {
+    const next = String(done);
+    if (count.textContent !== next) {
+      count.textContent = next;
+      count.classList.remove('bump');
+      void count.offsetWidth;
+      count.classList.add('bump');
+    }
+  }
+  const note = $('rail-count-note');
+  if (note) note.textContent = done ? (active ? `还有 ${active} 件进行中` : '今天已经留给自己了') : active ? '有一件正在进行' : '开始一次，就算数';
+  const progress = $('topbar-progress');
+  if (progress) {
+    progress.textContent = done ? `今天完成 ${done} 件` : active ? '有一件正在进行' : '还没有开始';
+    progress.dataset.fresh = String(done > 0);
+  }
+  const date = $('topbar-date');
+  if (date && !date.dataset.set) {
+    const now = new Date();
+    const week = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][now.getDay()];
+    date.textContent = `${now.getMonth() + 1} 月 ${now.getDate()} 日 ${week}`;
+    date.dataset.set = '1';
+  }
+}
+
+/* 区块进入时轻微上浮，只在允许动效的设备上生效。 */
+function setupReveal() {
+  if (!('IntersectionObserver' in window)) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const selectors = ['.hero-intro', '.hero-art', '.section-heading', '.studio-empty', '.workspace-note', '.lounge-heading', '.learning-steps', '.lounge-layout', '.guide-section', '#learning-history'];
+  const items = [...new Set(selectors.flatMap(selector => [...document.querySelectorAll(selector)]))];
+  if (!items.length) return;
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('is-in');
+      observer.unobserve(entry.target);
+    });
+  }, { rootMargin: '0px 0px -6% 0px', threshold: .04 });
+  items.forEach((node, index) => {
+    if (node.classList.contains('reveal')) return;
+    node.classList.add('reveal');
+    if (index > 0 && index < 4) node.classList.add(`delay-${Math.min(index, 2)}`);
+    observer.observe(node);
+  });
+}
+
+/* 只有一句开场白时，让对话内容在卡片里垂直居中，而不是顶着一条消息下面空一片。 */
+function watchChatLog() {
+  const log = $('chat-log');
+  if (!log) return;
+  const sync = () => log.classList.toggle('is-quiet', log.querySelectorAll('.message').length <= 1);
+  if ('MutationObserver' in window) new MutationObserver(sync).observe(log, { childList: true });
+  sync();
 }
 
 function renderDemos() {
@@ -1727,6 +1830,8 @@ function setupAvatar() {
       const percent = status === 'connecting' && Number.isFinite(progress) ? ` ${Math.round(progress)}%` : '';
       const spokenHint = status === 'ready' && !state.ttsEnabled ? ' 点右上角「语音」，回复就由 TA 说出来。' : '';
       $('avatar-status').textContent = `${detail}${percent}${spokenHint}`;
+      // 未连接时舞台里的 CTA 已经说清了，底下一行状态是重复噪音。
+      $('avatar-status').hidden = status === 'idle' || status === 'disconnected';
       $('avatar-stage').hidden = status !== 'ready' && status !== 'offline';
       document.querySelector('.portrait-frame')?.setAttribute('aria-label', status === 'ready' ? '学伴对话状态' : '数字人尚未连接');
       $('avatar-connect').disabled = active;
@@ -2001,7 +2106,7 @@ async function initModel() {
       setStatus(`已切换到 ${state.model.name || state.model.id}，已有对话保留。`);
     };
     state.modelStatus = state.model ? 'ready' : 'none';
-    badge.textContent = state.model ? '学伴在线' : '暂无模型';
+    badge.textContent = state.model ? '可以对话' : '暂无模型';
     badge.className = `model-state ${state.model ? 'ready' : 'error'}`;
     badge.disabled = false;
     badge.title = state.model ? '重新检查模型连接' : '点击重新连接学伴';
@@ -2239,6 +2344,8 @@ function setupEvents() {
   setupRecognition();
   setupDeskScene();
   setupStarter();
+  setupReveal();
+  watchChatLog();
 }
 
 function setupDeskScene() {
