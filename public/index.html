@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#F7F1E8">
+  <meta name="theme-color" content="#FAFAF9">
   <meta name="description" content="不晚，陪你把想学的事变成今天能开始的一小步。">
   <title>不晚｜想学，什么时候都不晚</title>
   <link rel="stylesheet" href="/style.css">
@@ -54,43 +54,22 @@
         <div class="hero-footnote"><span class="tiny-sun" aria-hidden="true"></span><span>从十分钟开始，按自己的节奏。</span></div>
       </div>
       <div class="hero-art" aria-label="兴趣桌面">
-        <div class="desk-experience" aria-label="可旋转的兴趣桌面，拖动查看，点击琴键试听" tabindex="0">
+        <div class="desk-experience" aria-label="可以拖动的兴趣桌面，点琴键试听，点画本或植物选一个兴趣">
           <div class="desk-orbit orbit-one"></div><div class="desk-orbit orbit-two"></div>
           <div class="desk-world">
             <div class="desk-surface"></div>
-            <div class="desk-piano"><div class="piano-lid"><span>BUWAN / FIRST NOTES</span></div><div class="piano-keys" aria-label="点击琴键试听"><button type="button" data-note="261.63" aria-label="试听Do"></button><button type="button" data-note="293.66" aria-label="试听Re"></button><button type="button" data-note="329.63" aria-label="试听Mi"></button><button type="button" data-note="349.23" aria-label="试听Fa"></button><button type="button" data-note="392" aria-label="试听Sol"></button><button type="button" data-note="440" aria-label="试听La"></button><button type="button" data-note="493.88" aria-label="试听Si"></button></div><span class="piano-edge"></span></div>
+            <div class="desk-piano"><div class="piano-lid"><span>BUWAN / FIRST NOTES</span></div><div class="piano-keys" aria-label="点击琴键试听"><button type="button" data-note="261.63" aria-label="试听 Do"></button><button type="button" data-note="293.66" aria-label="试听 Re"></button><button type="button" data-note="329.63" aria-label="试听 Mi"></button><button type="button" data-note="349.23" aria-label="试听 Fa"></button><button type="button" data-note="392" aria-label="试听 Sol"></button><button type="button" data-note="440" aria-label="试听 La"></button><button type="button" data-note="493.88" aria-label="试听 Si"></button></div><span class="piano-edge"></span></div>
             <button class="desk-sketch" type="button" data-desk-interest="绘画" aria-pressed="false" aria-label="从绘画开始"><span class="sketch-binding"></span><span class="sketch-sun"></span><span class="sketch-hill"></span><small>第一幅，不必完美。</small></button>
             <div class="desk-pencil" aria-hidden="true"></div>
             <button class="desk-plant" type="button" data-desk-interest="园艺" aria-pressed="false" aria-label="从园艺开始"><span class="plant-leaf leaf-one"></span><span class="plant-leaf leaf-two"></span><span class="plant-leaf leaf-three"></span><span class="plant-stem"></span><span class="plant-pot"></span></button>
             <span class="desk-sticker">JUST<br>BEGIN.</span>
           </div>
+        </div>
+        <span class="desk-hint"><i></i>拖动看看 · 轻点琴键</span>
         <div class="desk-selection" role="status" aria-live="polite">
           <span class="desk-selection-mark" aria-hidden="true"></span>
           <div><strong id="desk-selection-title">今天先碰一碰兴趣</strong><span id="desk-selection-detail">点击画本、植物或琴键，找到你的第一步</span></div>
         </div>
-        <span class="desk-hint"><i></i>拖动探索 · 轻点琴键</span>
-      </div>
-        <svg class="room-fallback" viewBox="0 0 480 330" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M52 275V120a143 143 0 0 1 286 0v155" fill="#E8EBDE"/>
-          <path d="M206 55v198M94 150h224" stroke="#F7F6F2" stroke-width="9"/>
-          <circle cx="281" cy="105" r="26" fill="#EBCB88"/>
-          <path d="m74 267 132-24 212 30-134 40z" fill="#EAE4D8"/>
-          <path d="m104 171-17 126m91-122 24 122m-66-147v130" stroke="#9B7153" stroke-width="7" stroke-linecap="round"/>
-          <path d="m96 132 78-9 13 91-79 8z" fill="#FFFCF4" stroke="#B69673" stroke-width="4"/>
-          <path d="m110 199 18-34 16 19 17-43 13 56" fill="#C3CFB2"/><circle cx="129" cy="150" r="9" fill="#E6A47C"/>
-          <path d="m222 198 129 1 23 40-143-1z" fill="#535B52"/>
-          <path d="m231 215 122 1 10 16-127-1z" fill="#FFFDF4"/>
-          <path d="m247 216 4 10m11-10 4 10m12-10 4 10m12-10 4 10m12-10 4 10m12-10 4 10m12-10 4 10" stroke="#535B52" stroke-width="5"/>
-          <path d="m238 240-5 46m125-47 8 47" stroke="#535B52" stroke-width="6" stroke-linecap="round"/>
-          <path d="M279 151v42m0-39 37-11v42" stroke="#9A7960" stroke-width="3"/><ellipse cx="272" cy="194" rx="8" ry="5" fill="#9A7960"/><ellipse cx="309" cy="185" rx="8" ry="5" fill="#9A7960"/>
-          <path d="M177 250h57v15h-57z" fill="#D18A6B"/><path d="m182 264-4 39m49-39 6 39" stroke="#986951" stroke-width="5"/>
-          <path d="M372 244c-2-34 3-67 15-92" stroke="#819476" stroke-width="4"/>
-          <path d="M381 187c-24 0-34-18-35-27 24-1 36 11 35 27zm1 16c28-1 40-19 40-30-26 1-39 14-40 30zm4-42c-18-7-20-29-16-38 20 9 24 24 16 38z" fill="#899B7A"/>
-          <path d="m351 239 45 1-9 43h-28z" fill="#CF9776"/>
-          <path d="M65 302h345" stroke="#C8C9BA" stroke-width="2" stroke-linecap="round"/>
-          <path d="m348 69 6-14m5 25 15-2m-23 13 9 9" stroke="#D58B66" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span class="art-note">从 0 到 1，也可以很轻。</span>
       </div>
     </section>
 

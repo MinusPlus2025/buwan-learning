@@ -2237,7 +2237,90 @@ function setupEvents() {
     });
   });
   setupRecognition();
+  setupDeskScene();
   setupStarter();
+}
+
+function setupDeskScene() {
+  const scene = document.querySelector('.desk-experience');
+  if (!scene) return;
+
+  // 画本 / 植物：点一下就把这个兴趣带进流程
+  document.querySelectorAll('[data-desk-interest]').forEach(button => {
+    button.addEventListener('click', () => {
+      const interest = button.dataset.deskInterest;
+      if (!interest) return;
+      $('interest-input').value = interest;
+      selectInterest(interest);
+    });
+  });
+
+  // 琴键：试听一个音，不依赖任何外部资源
+  let audio = null;
+  let noteTimer = 0;
+  const playNote = frequency => {
+    try {
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return;
+      audio = audio || new Ctor();
+      if (audio.state === 'suspended') void audio.resume();
+      const now = audio.currentTime;
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.14, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.1);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(now);
+      osc.stop(now + 1.15);
+    } catch {
+      // 设备不支持音频时保持安静，不打断页面
+    }
+  };
+  scene.querySelectorAll('.piano-keys button[data-note]').forEach(key => {
+    key.addEventListener('click', () => {
+      const frequency = Number(key.dataset.note);
+      if (Number.isFinite(frequency)) playNote(frequency);
+      key.classList.add('is-playing');
+      window.clearTimeout(noteTimer);
+      noteTimer = window.setTimeout(() => key.classList.remove('is-playing'), 200);
+    });
+  });
+
+  // 拖动旋转：指针拖到哪，桌面转到哪
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let baseX = 0;
+  let baseY = 0;
+  const clamp = (value, limit) => Math.max(-limit, Math.min(limit, value));
+  const readVar = name => Number.parseFloat(scene.style.getPropertyValue(name)) || 0;
+
+  scene.addEventListener('pointerdown', event => {
+    if (event.target.closest('button')) return;
+    dragging = true;
+    startX = event.clientX;
+    startY = event.clientY;
+    baseX = readVar('--desk-ry');
+    baseY = readVar('--desk-rx');
+    scene.classList.add('dragging');
+    scene.setPointerCapture?.(event.pointerId);
+  });
+  scene.addEventListener('pointermove', event => {
+    if (!dragging) return;
+    scene.style.setProperty('--desk-ry', `${clamp(baseX + (event.clientX - startX) * 0.12, 16)}deg`);
+    scene.style.setProperty('--desk-rx', `${clamp(baseY + (event.clientY - startY) * 0.07, 12)}deg`);
+  });
+  const stopDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    scene.classList.remove('dragging');
+  };
+  scene.addEventListener('pointerup', stopDrag);
+  scene.addEventListener('pointercancel', stopDrag);
+  scene.addEventListener('pointerleave', stopDrag);
 }
 
 function init() {
