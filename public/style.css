@@ -2644,14 +2644,14 @@ html:has(#large-text-toggle:checked) .composer textarea {
 .desk-sticker { position: absolute; right: 30px; bottom: 38px; width: 66px; height: 66px; border-radius: 50%; display: grid; place-content: center; line-height: 1.15; font-size: 13px; font-weight: 800; background: #d9694f; color: #fff9ea; transform: translateZ(2px) rotate(8deg); }
 .desk-orbit { position: absolute; width: 94%; height: 70%; left: 3%; top: 17%; border: 1px solid #dcded0; border-radius: 50%; transform: rotate(-20deg); pointer-events: none; }
 .orbit-two { width: 75%; left: 14%; transform: rotate(24deg); }
-.desk-selection { position: absolute; left: 50%; bottom: 24px; z-index: 4; width: min(274px, 80%); min-height: 44px; padding: 8px 11px; display: flex; align-items: center; gap: 9px; border: 1px solid rgba(215, 207, 190, .95); border-radius: 10px; background: rgba(255, 252, 244, .94); box-shadow: 0 8px 18px rgba(89, 79, 63, .09); pointer-events: none; transform: translateX(-50%); transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.desk-selection { position: absolute; left: 50%; bottom: 34px; z-index: 4; width: min(300px, 84%); min-height: 50px; padding: 10px 13px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(215, 207, 190, .95); border-radius: 12px; background: rgba(255, 252, 244, .94); box-shadow: 0 8px 18px rgba(89, 79, 63, .09); pointer-events: none; transform: translateX(-50%); transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
 .desk-selection.active { border-color: #d58b66; box-shadow: 0 9px 22px rgba(190, 112, 76, .15); transform: translateX(-50%) translateY(-2px); }
 .desk-selection-mark { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: #cc7756; box-shadow: 0 0 0 4px #f6e2d5; }
 .desk-selection div { min-width: 0; display: grid; gap: 1px; }
 .desk-selection strong, .desk-selection span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.desk-selection strong { color: #3e473d; font-size: 11px; line-height: 1.3; }
-.desk-selection div span { color: #77796c; font-size: 9px; line-height: 1.35; }
-.desk-hint { position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); white-space: nowrap; color: #70776b; font-size: 10px; letter-spacing: .12em; }
+.desk-selection strong { color: #3e473d; font-size: 12px; line-height: 1.35; }
+.desk-selection div span { color: #77796c; font-size: 10px; line-height: 1.4; }
+.desk-hint { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); white-space: nowrap; color: #70776b; font-size: 10px; letter-spacing: .12em; }
 .desk-hint i { display: inline-block; width: 5px; height: 5px; margin-right: 6px; border-radius: 50%; background: #cc7756; }
 .interest-section { margin-top: 20px; }
 .interest-section .section-heading h2 { white-space: normal; overflow-wrap: anywhere; }
@@ -3175,6 +3175,14 @@ html { scroll-padding-top: 90px; }
   .companion-stage .model-state { grid-column: 1; grid-row: 1; justify-self: start; min-height: 34px; padding: 5px 12px; }
   .companion-stage .model-picker { grid-column: 1; grid-row: 2; }
   .companion-stage .avatar-service { padding: 16px; }
+  /* 手机上手指比鼠标粗：学伴区的按钮统一抬到 48px 的可点高度，间距也拉开一点。 */
+  .companion-stage .avatar-controls { gap: 10px; }
+  .companion-stage .avatar-controls .quiet-button { min-height: 48px; font-size: 15px; }
+  .companion-stage .model-picker select,
+  .companion-stage .model-state { min-height: 46px; }
+  .companion-stage .starter-chat,
+  .companion-stage .chat-send,
+  .companion-stage .primary-button { min-height: 48px; }
 }
 .companion-stage .avatar-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
 /* 已连接时"连接数字人"这个按钮只剩一个失效状态，用上方状态文字表达即可，收起它把空间让给真正的动作。 */
@@ -3277,8 +3285,9 @@ body.focus-mode .interest-inspiration, body.focus-mode .studio-tabs, body.focus-
   .hero-footnote { display: none; }
   .hero-art { height: 230px; min-height: 0; margin-top: 12px; }
   .hero-art::before { top: 16px; right: 0; font-size: 8px; }
-  .desk-selection { bottom: 12px; }
-  .hero-art .desk-hint { bottom: 0; }
+  .desk-selection { bottom: 18px; min-height: 44px; padding: 8px 12px; }
+  /* 卡片里已经写了"点击画本、植物或琴键"，手机上不再叠一行操作提示，否则两段文字会挤在一起。 */
+  .hero-art .desk-hint { display: none; }
   .interest-section { padding-top: 0; margin-top: 12px; }
   .studio-tabs { gap: 0; justify-content: space-between; margin-bottom: 28px; }
   .studio-tab { min-height: 54px; font-size: 11px; gap: 4px; }
