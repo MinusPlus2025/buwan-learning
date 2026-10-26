@@ -198,6 +198,14 @@ body.v4 {
   color: var(--coral-deep);
 }
 
+/* 锚点跳转时给粘性导航留出空间（只设 scroll-padding，避免与旧规则叠加） */
+html { scroll-padding-top: 84px; }
+.v4 #conversation,
+.v4 #unlock-panel,
+.v4 #learning-history,
+.v4 #interest-inspiration,
+.v4 #interest-section { scroll-margin-top: 0; }
+
 /* ---------- 主容器 ---------- */
 .v4 .app-shell {
   max-width: 1180px;
@@ -1873,6 +1881,7 @@ body.v4 {
   .v4 .large-text-button { border: 1px solid var(--line); }
 
   .v4 .app-shell { padding: 0 16px 70px; }
+  html { scroll-padding-top: 112px; }
   .v4 .hero { padding: 20px 0 18px; gap: 18px; }
   .v4 .hero h1 { font-size: clamp(32px, 9.4vw, 44px); line-height: 1.18; }
   .v4 .hero h1 > span { white-space: normal; }
