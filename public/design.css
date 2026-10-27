@@ -2359,6 +2359,115 @@ html { scroll-padding-top: 76px; }
 .v4 .hero-art:hover .desk-hint,
 .v4 .hero-art:focus-within .desk-hint { opacity: 1; }
 
+/* ============================================================
+   v7 · 视觉修订
+   上一版把色彩压得太狠，整页只剩灰白，反而失去了重点。
+   这一版把"画面"还给内容：插画恢复本来的颜色，界面本身继续克制。
+   只改观感，不动结构与交互。
+   ============================================================ */
+
+/* 1. 首屏插画重新成为一幅画，而不是一块底纹 */
+.v4 .desk-world { filter: saturate(.94) contrast(1.03); }
+.v4 .hero-art {
+  border-radius: 16px;
+  background: linear-gradient(180deg, #F9F7F2 0%, #F2EEE5 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .85),
+    0 34px 74px -50px rgba(19, 19, 18, .48);
+}
+.v4 .hero-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(19, 19, 18, .04);
+  pointer-events: none;
+}
+.v4 .desk-hint { color: var(--ink-2); }
+.v4 .desk-hint i { background: var(--accent); }
+
+/* 2. 侧栏：把"今天"变成一张卡，底部留白就是留白，不再像被挤到两头 */
+.v4 .rail-foot {
+  margin-top: 20px;
+  padding: 15px 15px 13px;
+  border: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.v4 .rail-tally strong { font-size: 30px; font-weight: 500; letter-spacing: -.04em; }
+.v4 .rail-foot p { margin: 6px 0 4px; color: var(--muted); }
+/* 侧栏的"墙"退到几乎看不见，空白才像留白，而不是空走廊 */
+.v4 .rail { background: transparent; border-right-color: var(--line-soft); }
+.v4 .rail-nav .nav-link.active { background: rgba(19, 19, 18, .055); }
+
+/* 3. 标题层级：全站只有首屏 h1 是"大"，其余退半步 */
+.v4 .section-heading h2,
+.v4 .lounge-heading h2,
+.v4 .guide-intro h2 {
+  font-size: clamp(23px, 2.05vw, 29px);
+  letter-spacing: -.026em;
+  line-height: 1.26;
+}
+.v4 .section-heading { margin-bottom: 22px; }
+
+/* 3b. 首屏给画面多一点地盘：它是这一页唯一的"作品"，不该只当配图 */
+@media (min-width: 1101px) {
+  .v4 .hero {
+    grid-template-columns: minmax(0, .86fr) minmax(380px, 1fr);
+    gap: 44px;
+  }
+  .v4 .hero-art { height: 452px; }
+}
+
+/* 4. 顶栏工具：常用项留在墨色，破坏性项退到最后 */
+.v4 .top-actions .text-icon-button[title] { color: var(--muted); }
+.v4 .top-actions .text-icon-button[title]:hover { color: var(--ink); }
+.v4 #tts-toggle[aria-pressed="true"] { color: var(--ink); }
+
+/* 5. 首屏表单的标签再清楚一点，别让用户猜要填什么 */
+.v4 .hero .interest-form label { font-size: 12.5px; color: var(--ink-2); }
+.v4 .hero .interest-form > p { font-size: 12px; }
+
+/* 6. 工坊空状态：收一点高度，三列重新配平 */
+.v4 .studio-empty { padding: 26px 28px; }
+.v4 .studio-empty > div > strong { font-size: 15.5px; }
+.v4 .empty-steps { gap: 8px; }
+
+/* 7. 演示卡片：边框变浅，标题有重量，让人看得出"这是真实案例" */
+.v4 .demo-button {
+  border-color: var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: none;
+}
+.v4 .demo-button:hover {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+.v4 .demo-button strong { font-size: 14px; font-weight: 550; color: var(--ink); }
+
+/* 9. 手机端：顶部第二行原本占了 44px，只装四个字。
+      压成一条 38px 的细工具带，读起来是"工具栏"，不是"第二行导航"。 */
+@media (max-width: 760px) {
+  .v4 .topbar {
+    min-height: 38px;
+    height: 38px;
+    padding: 0 12px;
+    background: rgba(251, 251, 249, .92);
+  }
+  .v4 .text-icon-button,
+  .v4 .large-text-button {
+    min-height: 26px;
+    padding: 0 7px;
+    font-size: 11px;
+    letter-spacing: .01em;
+  }
+  .v4 .top-actions { gap: 2px; }
+  .v4 .hero { padding-top: 30px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .v4 *, .v4 *::before, .v4 *::after {
     animation-duration: .01ms !important;
@@ -2366,3 +2475,4 @@ html { scroll-padding-top: 76px; }
     transition-duration: .01ms !important;
   }
 }
+

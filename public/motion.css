@@ -1,0 +1,456 @@
+/* 不晚 · 动效层 v7
+   在 style.css / design.css 之后加载，只负责"时间"这一维，不改静态排版。
+
+   动效原则（取自 Apple Design Awards 获奖作品与 Apple HIG 的共同做法）：
+   1. 有目的。只在"进入视野"和"状态改变"时动；静止时完全静止，不做无意义的循环漂浮。
+   2. 一屏一个主动作。首屏只编舞一次，其余元素让路。
+   3. 时长跟距离成正比：按钮 110ms，面板 340ms，整页 620ms。
+   4. 落定要软。统一 expo-out；只有"完成"允许一次轻微过冲。
+   5. 可以从任意一帧被打断。状态切换用 transition，一次性出场才用 animation。
+   6. 可以被关掉。prefers-reduced-motion 下退化为即时。 */
+
+.v4 {
+  --mv-1: 110ms;
+  --mv-2: 200ms;
+  --mv-3: 340ms;
+  --mv-4: 620ms;
+  --mv-5: 1000ms;
+  --e-out: cubic-bezier(.16, 1, .3, 1);
+  --e-inout: cubic-bezier(.65, 0, .35, 1);
+  --e-spring: cubic-bezier(.34, 1.42, .5, 1);
+}
+
+/* ---------- 1. 可交互元素的统一反馈 ---------- */
+.v4 button,
+.v4 summary,
+.v4 .nav-link,
+.v4 .studio-tab,
+.v4 .brand {
+  transition:
+    transform var(--mv-1) var(--e-out),
+    background-color var(--mv-2) var(--e-out),
+    border-color var(--mv-2) var(--e-out),
+    color var(--mv-2) var(--e-out),
+    box-shadow var(--mv-2) var(--e-out),
+    opacity var(--mv-2) var(--e-out);
+}
+
+/* 按下必须立刻有反应，不等松手 */
+.v4 button:not(:disabled):active {
+  transform: scale(.972);
+  transition-duration: 90ms;
+}
+.v4 .nav-link:active,
+.v4 .studio-tab:active {
+  transform: scale(.985);
+}
+
+/* 键盘聚焦：只在键盘操作时出现，不干扰鼠标用户 */
+.v4 :where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+.v4 :where(input, textarea):focus-visible {
+  outline: none;
+}
+
+/* ---------- 2. 首屏编舞 ---------- */
+@keyframes mv-rise {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mv-line {
+  from { clip-path: inset(-.1em -.2em 100% -.2em); transform: translate3d(0, .16em, 0); }
+  to { clip-path: inset(-.1em -.2em -.24em -.2em); transform: none; }
+}
+@keyframes mv-art {
+  from { opacity: 0; transform: translate3d(0, 26px, 0) scale(.972); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mv-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+html.mv-boot .mv-in {
+  animation: mv-rise var(--mv-4) var(--e-out) both;
+  animation-delay: var(--mv-d, 0ms);
+}
+html.mv-boot .mv-line {
+  animation: mv-line .9s var(--e-out) both;
+  animation-delay: var(--mv-d, 0ms);
+}
+html.mv-boot .mv-in-art {
+  animation: mv-art 1.05s var(--e-out) both;
+  animation-delay: var(--mv-d, 0ms);
+}
+
+/* 标题按行揭幕 */
+.v4 .hero h1 span {
+  display: block;
+  will-change: clip-path;
+}
+
+/* ---------- 3. 滚动进入 ---------- */
+/* 未触发前隐藏，触发后播放。JS 不可用时 html.mv-ready 不存在，内容照常可见。 */
+html.mv-ready .reveal:not(.is-in) {
+  opacity: 0;
+}
+html.mv-ready .reveal.is-in {
+  animation: mv-rise var(--mv-4) var(--e-out) both;
+}
+
+/* 首屏由编舞接管，避免两套动画叠加 */
+html.mv-ready .hero-intro.reveal:not(.is-in),
+html.mv-ready .hero-art.reveal:not(.is-in) {
+  opacity: 1;
+}
+.v4 .hero-intro.reveal.is-in,
+.v4 .hero-art.reveal.is-in {
+  animation: none;
+}
+
+/* 生成出来的手册是用户要读的内容，宁可不做动画，也不能被藏住 */
+html.mv-ready .guide-section.reveal:not(.is-in) {
+  opacity: 1;
+}
+
+/* 成组进入：卡片依次出现，间隔 55ms，最多排到第 9 个 */
+.v4 .mv-stagger > :nth-child(1) { --n: 0; }
+.v4 .mv-stagger > :nth-child(2) { --n: 1; }
+.v4 .mv-stagger > :nth-child(3) { --n: 2; }
+.v4 .mv-stagger > :nth-child(4) { --n: 3; }
+.v4 .mv-stagger > :nth-child(5) { --n: 4; }
+.v4 .mv-stagger > :nth-child(6) { --n: 5; }
+.v4 .mv-stagger > :nth-child(7) { --n: 6; }
+.v4 .mv-stagger > :nth-child(8) { --n: 7; }
+.v4 .mv-stagger > :nth-child(n+9) { --n: 8; }
+
+.v4 .mv-stagger > * {
+  opacity: 0;
+}
+.v4 .mv-stagger.mv-shown > * {
+  animation: mv-rise .46s var(--e-out) both;
+  animation-delay: calc(var(--n, 0) * 40ms);
+}
+
+/* 没有 JS 的降级：容器不隐藏 */
+html:not(.mv-ready) .v4 .mv-stagger > * {
+  opacity: 1;
+}
+
+/* ---------- 4. 顶栏与滚动进度 ---------- */
+.v4 .topbar {
+  transition:
+    background-color var(--mv-3) var(--e-out),
+    box-shadow var(--mv-3) var(--e-out),
+    border-color var(--mv-3) var(--e-out);
+}
+.v4.is-scrolled .topbar {
+  background-color: rgba(250, 250, 249, .82);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom-color: transparent;
+  box-shadow: 0 1px 0 rgba(19, 19, 18, .07), 0 8px 24px -18px rgba(19, 19, 18, .25);
+}
+
+.mv-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 1.5px;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  background: var(--ink, #131312);
+  opacity: .28;
+  z-index: 120;
+  pointer-events: none;
+  transition: opacity var(--mv-3) var(--e-out);
+}
+html.mv-boot .mv-progress { opacity: 0; }
+html.mv-ready.mv-scrolled-page .mv-progress { opacity: .28; }
+
+/* ---------- 5. 输入与按钮的手感 ---------- */
+.v4 .interest-entry,
+.v4 .composer {
+  transition:
+    box-shadow var(--mv-3) var(--e-out),
+    border-color var(--mv-3) var(--e-out),
+    background-color var(--mv-3) var(--e-out);
+}
+.v4 .interest-entry:focus-within {
+  box-shadow: 0 0 0 4px rgba(228, 85, 44, .09);
+}
+.v4 .composer:focus-within {
+  box-shadow: 0 0 0 4px rgba(19, 19, 18, .05);
+}
+
+/* 主按钮：悬停时箭头跟着走，给一个"可以按"的物理暗示 */
+.v4 .primary-button span[aria-hidden="true"],
+.v4 .send-button svg,
+.v4 .seed-button .interest-arrow,
+.v4 .hero-chat-link span[aria-hidden="true"] {
+  transition: transform var(--mv-2) var(--e-out), opacity var(--mv-2) var(--e-out);
+  display: inline-block;
+}
+.v4 .primary-button:hover span[aria-hidden="true"] { transform: translate(2px, -2px); }
+.v4 .send-button:hover svg { transform: translateX(2px); }
+.v4 .seed-button:hover .interest-arrow { transform: translate(2px, -2px); }
+.v4 .hero-chat-link:hover span[aria-hidden="true"] { transform: translateX(3px); }
+
+/* 发送按钮在有内容时点亮 */
+.v4 .send-button {
+  transition:
+    background-color var(--mv-2) var(--e-out),
+    color var(--mv-2) var(--e-out),
+    transform var(--mv-1) var(--e-out),
+    opacity var(--mv-2) var(--e-out);
+}
+.v4 .send-button[data-filled="false"] {
+  opacity: .5;
+}
+
+/* ---------- 6. 兴趣桌面 ---------- */
+.v4 .piano-keys button {
+  transition: transform 90ms var(--e-out), background-color 120ms var(--e-out), box-shadow 120ms var(--e-out);
+  transform-origin: 50% 0%;
+}
+.v4 .piano-keys button:active,
+.v4 .piano-keys button.is-hit {
+  transform: translateY(2px) scaleY(.97);
+}
+
+.v4 .desk-experience {
+  transition: transform var(--mv-4) var(--e-out);
+}
+
+/* 琴键被点中时飘出一颗音符，只做一次，不循环 */
+.mv-note {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  font-size: 13px;
+  line-height: 1;
+  color: rgba(19, 19, 18, .42);
+  animation: mv-note-rise 1.05s var(--e-out) forwards;
+}
+@keyframes mv-note-rise {
+  from { opacity: 0; transform: translate(-50%, 0) scale(.6); }
+  18% { opacity: 1; }
+  to { opacity: 0; transform: translate(-50%, -46px) scale(1.05); }
+}
+
+/* 桌面上的选择题答完后，状态条轻轻跳一下 */
+.v4 .desk-selection.is-changing .desk-selection-mark {
+  animation: mv-ping .6s var(--e-out);
+}
+@keyframes mv-ping {
+  0% { transform: scale(.6); opacity: .4; }
+  55% { transform: scale(1.5); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ---------- 7. 对话 ---------- */
+@keyframes mv-msg {
+  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(.994); }
+  to { opacity: 1; transform: none; }
+}
+.v4 .chat-log .message {
+  animation: mv-msg .46s var(--e-out) both;
+}
+/* 一次恢复很多条历史时，后面的不要排队，避免 waited 感 */
+.v4 .chat-log .message:nth-child(n+4) {
+  animation-duration: .26s;
+  animation-delay: 0ms;
+}
+
+/* 等待回应时，头像轻轻呼吸，替代"假打字" */
+@keyframes mv-breathe {
+  0%, 100% { opacity: .55; transform: scale(.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+.v4 .message.loading .avatar {
+  animation: mv-breathe 1.6s var(--e-inout) infinite;
+}
+
+/* 快捷问题：依次浮现，给"可以这样开始"一点引导 */
+.v4 .quick-prompts .quick-chip {
+  transition:
+    transform var(--mv-2) var(--e-out),
+    background-color var(--mv-2) var(--e-out),
+    border-color var(--mv-2) var(--e-out),
+    color var(--mv-2) var(--e-out);
+}
+.v4 .quick-prompts .quick-chip:hover {
+  transform: translateY(-1px);
+}
+.v4 .quick-prompts .quick-chip:active {
+  transform: translateY(0) scale(.98);
+}
+
+/* ---------- 8. 数字人舞台 ---------- */
+/* 深色舞台是整页唯一的"另一空间"，让它有一点点存在感，但不喧哗 */
+.v4 .stage-screen {
+  transition: box-shadow var(--mv-4) var(--e-out), transform var(--mv-4) var(--e-out);
+}
+.v4 .companion-stage:hover .stage-screen {
+  box-shadow: 0 28px 70px -46px rgba(10, 10, 11, .8);
+}
+
+.v4 .stage-glow {
+  transform: translateX(-50%) translate3d(var(--gx, 0px), var(--gy, 0px), 0);
+  transition: transform 900ms var(--e-out);
+}
+
+/* 说话时，声波环跑起来；静止时完全不动 */
+@keyframes mv-ring {
+  0% { transform: scale(.86); opacity: .55; }
+  70% { opacity: .1; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+.v4 .avatar-stage[data-speaking="true"] ~ .sound-orb .sound-ring,
+.v4 .sound-orb[data-state="speaking"] .sound-ring {
+  animation: mv-ring 1.9s var(--e-out) infinite;
+}
+.v4 .sound-orb[data-state="speaking"] .sound-ring-two {
+  animation-delay: .65s;
+}
+
+/* 字幕出现时从下方推上来，像真的有人在说话 */
+.v4 .stage-caption:not([hidden]) {
+  animation: mv-rise .38s var(--e-out) both;
+}
+
+/* 连接中的进度条：只有真正在等的时候才有流动感 */
+.v4 .overlay-progress span {
+  transition: width var(--mv-3) var(--e-out);
+}
+
+/* ---------- 9. 计时与完成 ---------- */
+.v4 #starter-clock-ring {
+  transition: filter var(--mv-3) var(--e-out);
+}
+.v4 #starter-clock-ring.is-running {
+  filter: drop-shadow(0 0 14px rgba(228, 85, 44, .22));
+}
+
+/* 完成是可感知的高点：环脉冲一次 + 勾描边 + 文案上浮 */
+@keyframes mv-pulse-once {
+  0% { transform: scale(1); }
+  38% { transform: scale(1.055); }
+  100% { transform: scale(1); }
+}
+@keyframes mv-draw {
+  from { stroke-dashoffset: 40; }
+  to { stroke-dashoffset: 0; }
+}
+.v4 .starter-session.is-done #starter-clock-ring {
+  animation: mv-pulse-once .72s var(--e-spring);
+}
+.v4 .starter-session.is-done #starter-clock-ring svg path {
+  stroke-dasharray: 40;
+  animation: mv-draw .5s var(--e-out) .08s both;
+}
+
+.v4 .starter-achievement:not([hidden]) {
+  animation: mv-rise .5s var(--e-out) both;
+}
+
+/* ---------- 10. 卡片与列表 ---------- */
+.v4 .seed-button,
+.v4 .demo-button,
+.v4 .guide-card,
+.v4 .history-card {
+  transition:
+    transform var(--mv-2) var(--e-out),
+    box-shadow var(--mv-2) var(--e-out),
+    border-color var(--mv-2) var(--e-out),
+    background-color var(--mv-2) var(--e-out);
+}
+.v4 .seed-button:hover,
+.v4 .demo-button:hover,
+.v4 .history-card:hover {
+  transform: translateY(-2px);
+}
+.v4 .seed-button:active,
+.v4 .demo-button:active,
+.v4 .history-card:active {
+  transform: translateY(0) scale(.994);
+}
+
+/* 手册里的一周条目展开 */
+.v4 .plan-manual details[open] .week-content {
+  animation: mv-rise .34s var(--e-out) both;
+}
+
+/* 任何折叠面板展开时，内容都要"落"进来，而不是硬跳出来 */
+.v4 details[open] > :not(summary) {
+  animation: mv-fade .3s var(--e-out) both;
+}
+
+/* 生成手册时的骨架呼吸，让人知道"在做事" */
+@keyframes mv-shimmer {
+  from { background-position: -220px 0; }
+  to { background-position: 320px 0; }
+}
+.v4 .mv-skeleton {
+  border-radius: var(--r-sm);
+  background-image: linear-gradient(90deg, rgba(19,19,18,.05) 0%, rgba(19,19,18,.1) 45%, rgba(19,19,18,.05) 90%);
+  background-size: 420px 100%;
+  animation: mv-shimmer 1.15s linear infinite;
+}
+
+/* ---------- 11. 锚点跳转 ---------- */
+html.mv-ready {
+  scroll-behavior: smooth;
+}
+
+/* 从左侧导航跳过去时，落点轻轻亮一下，回答"我到了哪里" */
+@keyframes mv-arrive {
+  0% { box-shadow: 0 0 0 0 rgba(19, 19, 18, .1); }
+  30% { box-shadow: 0 0 0 6px rgba(19, 19, 18, .045); }
+  100% { box-shadow: 0 0 0 14px rgba(19, 19, 18, 0); }
+}
+.v4 .mv-arrive {
+  animation: mv-arrive 1.15s var(--e-out) both;
+  border-radius: var(--r-lg);
+}
+
+/* 今天完成的小步 +1 时，数字弹一下再接住 */
+@keyframes mv-bump {
+  0% { transform: scale(1); }
+  38% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+.v4 .rail-tally strong.bump {
+  animation: mv-bump .46s var(--e-spring);
+  display: inline-block;
+}
+
+/* ---------- 12. 尊重系统的"减少动态效果" ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html.mv-ready {
+    scroll-behavior: auto;
+  }
+  html.mv-ready .reveal:not(.is-in),
+  .v4 .mv-stagger > * {
+    opacity: 1;
+  }
+  .v4 *,
+  .v4 *::before,
+  .v4 *::after,
+  html.mv-boot .mv-in,
+  html.mv-boot .mv-line,
+  html.mv-boot .mv-in-art {
+    animation-duration: .001ms;
+    animation-iteration-count: 1;
+    animation-delay: 0ms;
+    transition-duration: .001ms;
+  }
+  .v4 .chat-log .message.loading .avatar {
+    animation: none;
+    opacity: .8;
+  }
+  .mv-note {
+    display: none;
+  }
+}
